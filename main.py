@@ -9,7 +9,7 @@ import os                        # Interface for interacting with the operating 
 from dotenv import load_dotenv   # Utility to securely load environment variables from a .env file
 
 # 1. Page Configuration
-st.set_page_config(page_title="AI Sales Intelligence 2026", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
 # 2. API Key Configuration
 load_dotenv()
