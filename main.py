@@ -1,12 +1,12 @@
-import streamlit as st
-import pandas as pd
-import sqlite3
-import json
-import re
-from groq import Groq
-from dateutil import parser
-import os
-from dotenv import load_dotenv
+import streamlit as st           # Framework for building the web interface and dashboard
+import pandas as pd              # Library for high-performance data manipulation and analysis
+import sqlite3                   # Built-in SQL database engine for local data warehousing
+import json                      # Module for parsing and formatting JSON data for AI exchange
+import re                        # Regular expression module for advanced text and numeric cleaning
+from groq import Groq            # Official client for interacting with the Groq Cloud AI inference API
+from dateutil import parser      # Robust fuzzy date utility to handle messy "Month Day, Year" formats
+import os                        # Interface for interacting with the operating system and file paths
+from dotenv import load_dotenv   # Utility to securely load environment variables from a .env file
 
 # 1. Page Configuration
 st.set_page_config(page_title="AI Sales Intelligence 2026", page_icon="🚀", layout="wide")
