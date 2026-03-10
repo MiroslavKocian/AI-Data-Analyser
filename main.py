@@ -91,15 +91,16 @@ def main():
                     
                     df['Total_Revenue'] = df['Units_Sold'] * df['Unit_Price']
                     
-                    # Final display cleanup: convert internal NaNs back to empty strings for the UI
+                    # Final display cleanup: ensure local and cloud show the same clean results
                     display_df = df.copy()
 
-                    # 1. Force Date to a consistent string format to stop terminal errors
+                    # 1. Force Date to a consistent string format
                     if 'Date' in display_df.columns:
                         display_df['Date'] = pd.to_datetime(display_df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-                    # 2. Now fill all remaining NaNs/None with empty strings
-                    display_df = display_df.fillna("")
+                    # 2. Convert entire DF to string and scrub all versions of "nan"
+                    # This is the "Force" part that removes the text you see in the browser
+                    display_df = display_df.astype(str).replace(['nan', 'NaN', 'None', 'NaT'], '')
                     
                     st.session_state.cleaned_df = display_df
 
