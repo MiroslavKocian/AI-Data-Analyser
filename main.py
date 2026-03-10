@@ -12,15 +12,26 @@ from dotenv import load_dotenv
 st.set_page_config(page_title="AI Sales Intelligence 2026", page_icon="🚀", layout="wide")
 
 # 2. API Key Configuration
-# This checks Streamlit Cloud Secrets first, then falls back to your local .env
 load_dotenv()
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+
+# Step 1: Check your local .env file first (This prevents the Streamlit crash)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+# Step 2: ONLY if the local key is missing, check Streamlit Cloud Secrets
+if not GROQ_API_KEY:
+    try:
+        # We only touch st.secrets if we haven't found a key locally
+        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
+    except Exception:
+        # If we are local and there's no secrets file, this catch prevents the crash
+        GROQ_API_KEY = None
 
 if not GROQ_API_KEY:
-    st.error("🔑 API Key Missing! Please add it to Streamlit Secrets.")
+    st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
     st.stop()
 
-client = Groq(api_key=GROQ_API_KEY)
+# Initialize the client with the successfully found key
+client = Groq(api_key=GROQ_API_KEY.strip())
 
 if 'cleaned_df' not in st.session_state:
     st.session_state.cleaned_df = None
