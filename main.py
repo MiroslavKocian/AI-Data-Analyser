@@ -61,7 +61,7 @@ def main():
                     df.columns = [str(c).strip().title() for c in df.columns]
                     
                     # Python Formatting & Safety
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+                    df['Date'] = pd.to_datetime(df['Date'], format='mixed', dayfirst=True, errors='coerce').dt.date
                     df['Region'] = df.get('Region', pd.Series()).astype(str).str.strip().str.title()
                     for col in ['Units_Sold', 'Unit_Price']:
                         if col in df.columns:
