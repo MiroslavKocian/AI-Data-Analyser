@@ -1,4 +1,6 @@
 streamlit
 pandas
-groq
 openpyxl
+groq
+python-dotenv
+python-dateutil
