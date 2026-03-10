@@ -5,12 +5,21 @@ import json
 import re
 from groq import Groq
 from dateutil import parser
+import os
+from dotenv import load_dotenv
 
 # 1. Page Configuration
 st.set_page_config(page_title="AI Sales Intelligence 2026", page_icon="🚀", layout="wide")
 
 # 2. API Key Configuration
-GROQ_API_KEY = "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"
+# This checks Streamlit Cloud Secrets first, then falls back to your local .env
+load_dotenv()
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    st.error("🔑 API Key Missing! Please add it to Streamlit Secrets.")
+    st.stop()
+
 client = Groq(api_key=GROQ_API_KEY)
 
 if 'cleaned_df' not in st.session_state:
