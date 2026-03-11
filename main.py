@@ -6,52 +6,30 @@ import re                                                            # Regular e
 from groq import Groq, APIStatusError, APIConnectionError            # Official client for interacting with the Groq Cloud AI inference API
 from dateutil import parser                                          # Robust fuzzy date utility to handle messy "Month Day, Year" formats
 import os                                                            # Interface for interacting with the operating system and file paths
-from dotenv import load_dotenv                                       # Utility to securely load environment variables from a .env file
+from dotenv import load_dotenv, dotenv_values                        # Utility to securely load environment variables from a .env file
 
-# 1. Page Configuration
+# Page Configuration
 st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
-# 2. API Key Configuration
-# Load variables from .env. `override=True` ensures the .env file takes
-# precedence over any system-level environment variables.
-
-# 1. Try to load from local .env file
-
+# API Key Configuration
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(BASE_DIR, ".env")
 GROQ_API_KEY = None
 key_source = None
 
-# Check if .env file ACTUALLY exists on the disk
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.join(BASE_DIR, ".env")
-
-# --- DIAGNOSTIC START ---
-# Remove these two lines once you find the problem
-st.sidebar.write(f"DEBUG: Path: {env_path}")
-st.sidebar.write(f"DEBUG: File Found?: {os.path.exists(env_path)}")
-# --- DIAGNOSTIC END ---
-
+# Try to load from local .env file
 if os.path.exists(env_path):
     # This reads the file directly into a Python Dictionary
-    env_dict = dotenv_values(env_path)
-    
+    env_dict = dotenv_values(env_path)    
     if "GROQ_API_KEY" in env_dict and env_dict["GROQ_API_KEY"]:
         GROQ_API_KEY = env_dict["GROQ_API_KEY"].strip()
         key_source = ".env file"
 
-# 2. If no .env file, check Streamlit Secrets
+# If no .enf file found, check Streamlit Secrets 
 if not GROQ_API_KEY:
-    try:
-        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
-        if GROQ_API_KEY:
-            key_source = "Streamlit Secrets"
-    except Exception:
-        pass
-
-# 3. Final Fallback (System Environment)
-if not GROQ_API_KEY:
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
     if GROQ_API_KEY:
-        key_source = "System Environment"
+        key_source = "Streamlit Secrets"
 
 if not GROQ_API_KEY:
     st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
