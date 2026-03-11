@@ -14,28 +14,33 @@ st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wid
 # 2. API Key Configuration
 # Load variables from .env. `override=True` ensures the .env file takes
 # precedence over any system-level environment variables.
+
+# 1. Try to load from local .env file
 load_dotenv(override=True)
 
-# Priority 1: Attempt to load the key from the local .env file.
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-# Uncomment the next line if you want to test NOT having .env file.
-# It is necessary because even if .env is empty then GROQ_API_KEY is loaded from secrets.toml in the previous line
-# GROQ_API_KEY = None
-
+GROQ_API_KEY = None
 key_source = None
-if GROQ_API_KEY:
-    key_source = ".env file"
-# Priority 2: If no key is found in .env, fall back to Streamlit Secrets.
-# This is the standard method for apps deployed to Streamlit Community Cloud.
-else:
+
+# Check if .env file ACTUALLY exists on the disk
+if os.path.exists(".env"):
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    if GROQ_API_KEY:
+        key_source = ".env file"
+
+# 2. If no .env file, check Streamlit Secrets
+if not GROQ_API_KEY:
     try:
         GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
         if GROQ_API_KEY:
             key_source = "Streamlit Secrets"
     except Exception:
-        # This handles local runs where st.secrets doesn't exist or is empty.
-        GROQ_API_KEY = None
+        pass
+    
+# 3. Final Fallback (System Environment)
+if not GROQ_API_KEY:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    if GROQ_API_KEY:
+        key_source = "System Environment"
 
 if not GROQ_API_KEY:
     st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
