@@ -10,6 +10,9 @@ from groq import Groq, APIStatusError, APIConnectionError
 # Page Configuration
 st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
+# Constants
+LLM_MODEL = "llama-3.1-8b-instant"
+
 @st.cache_resource
 def verify_groq_connection(_client, api_key):
     """
@@ -29,55 +32,6 @@ def verify_groq_connection(_client, api_key):
         return False, "Could not connect to Groq. Check your internet."
     except Exception as e:
         return False, f"Unexpected Error: {str(e)}"
-
-# API Key Configuration
-# Remove any existing 'GROQ_API_KEY because old ones can be cached'
-if "GROQ_API_KEY" in os.environ:
-    del os.environ["GROQ_API_KEY"]
-
-# Priority 1: Load GROQ_API_KEY from local .env file
-# Reads .env file 
-# Copy the variables inside it to "Environment Variables" (the os.environ dictionary)
-# Ensure he .env file takes precedence over system variables with True
-load_dotenv(override=True)
-
-# Get the GROQ_API_KEY from os.environ dictionary
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-API_KEY_source = None
-client = None
-
-if GROQ_API_KEY:
-    GROQ_API_KEY = GROQ_API_KEY.strip()
-    API_KEY_source = ".env file"
-
-# Priority 2: Load GROQ_API_KEY from Streamlit Secrets if not using .env
-if not GROQ_API_KEY:
-    try:
-        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
-        if GROQ_API_KEY:
-            GROQ_API_KEY = GROQ_API_KEY.strip()
-            API_KEY_source = "Streamlit Secrets"
-    except Exception:
-        GROQ_API_KEY = None
-
-if not GROQ_API_KEY:
-    st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
-    st.stop()
-else:
-    client = Groq(api_key=GROQ_API_KEY)
-    is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
-
-    if is_healthy:
-        st.sidebar.success(f"✅ {health_message}")
-    else:
-        st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration"
-        "and try refreshing the page.")
-        st.stop()
-
-if 'cleaned_df' not in st.session_state:
-    st.session_state.cleaned_df = None
 
 def try_parse_date(date_val):
     """Parses 'March 10, 2026' and returns None for truly empty cells."""
@@ -110,7 +64,7 @@ def ai_clean_agent(client, df):
     """
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
-        model="llama-3.1-8b-instant",
+        model=LLM_MODEL,
         temperature=0,  # This 1 line stops the "creativity" and guessing
         response_format={"type": "json_object"}
     )
@@ -118,7 +72,48 @@ def ai_clean_agent(client, df):
     return pd.DataFrame(clean_output.get("records", []))
 
 def main():
-    st.title("🚀 Enterprise AI Sales Analyser")
+    # --- 1. Setup & Configuration ---
+    st.title("🚀 Enterprise AI Data Warehouse")
+
+    if "GROQ_API_KEY" in os.environ:
+        del os.environ["GROQ_API_KEY"]
+    
+    load_dotenv(override=True)
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    API_KEY_source = None
+
+    if GROQ_API_KEY:
+        GROQ_API_KEY = GROQ_API_KEY.strip()
+        API_KEY_source = ".env file"
+
+    if not GROQ_API_KEY:
+        try:
+            GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
+            if GROQ_API_KEY:
+                GROQ_API_KEY = GROQ_API_KEY.strip()
+                API_KEY_source = "Streamlit Secrets"
+        except Exception:
+            GROQ_API_KEY = None
+
+    if not GROQ_API_KEY:
+        st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
+        st.stop()
+    
+    client = Groq(api_key=GROQ_API_KEY)
+    is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
+
+    if is_healthy:
+        st.sidebar.success(f"✅ {health_message}")
+    else:
+        st.error(f"**Connection Error:** {health_message}")
+        st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration"
+        "and try refreshing the page.")
+        st.stop()
+
+    if 'cleaned_df' not in st.session_state:
+        st.session_state.cleaned_df = None
+
+    # --- 2. UI Layout ---
     st.markdown("---")
 
     st.sidebar.header("📂 Data Ingestion")
@@ -135,12 +130,6 @@ def main():
                 try:
                     df = ai_clean_agent(client, raw_df)
                     df.columns = [str(c).strip().title() for c in df.columns]
-                    # --- THE REGION PART ---
-                    # This ensures "SOUTH" becomes "South" and removes extra spaces
-                    if 'Region' in df.columns:
-                        df['Region'] = df['Region'].astype(str).str.strip().str.title()
-                        # Clean up any 'Nan' strings that might have slipped through
-                        df['Region'] = df['Region'].replace('Nan', '')                    
                     
                     # 1. Precise Date Parsing
                     if 'Date' in df.columns:
@@ -186,7 +175,7 @@ def main():
 
             if user_query:
                 sql_prompt = f"Table 'sales' has [Date, Region, Product_Category, Units_Sold, Unit_Price, Total_Revenue]. Convert to SQLite: {user_query}. Return ONLY SQL code."
-                sql_gen = client.chat.completions.create(messages=[{"role": "user", "content": sql_prompt}], model="llama-3.1-8b-instant")
+                sql_gen = client.chat.completions.create(messages=[{"role": "user", "content": sql_prompt}], model=LLM_MODEL)
                 query = sql_gen.choices[0].message.content.strip().replace('```sql', '').replace('```', '')
                 
                 try:
