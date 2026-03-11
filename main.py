@@ -1,34 +1,75 @@
-import streamlit as st           # Framework for building the web interface and dashboard
-import pandas as pd              # Library for high-performance data manipulation and analysis
-import sqlite3                   # Built-in SQL database engine for local data warehousing
-import json                      # Module for parsing and formatting JSON data for AI exchange
-import re                        # Regular expression module for advanced text and numeric cleaning
-from groq import Groq            # Official client for interacting with the Groq Cloud AI inference API
-from dateutil import parser      # Robust fuzzy date utility to handle messy "Month Day, Year" formats
-import os                        # Interface for interacting with the operating system and file paths
-from dotenv import load_dotenv   # Utility to securely load environment variables from a .env file
+import streamlit as st                                               # Framework for building the web interface and dashboard
+import pandas as pd                                                  # Library for high-performance data manipulation and analysis
+import sqlite3                                                       # Built-in SQL database engine for local data warehousing
+import json                                                          # Module for parsing and formatting JSON data for AI exchange
+import re                                                            # Regular expression module for advanced text and numeric cleaning
+from groq import Groq, APIStatusError, APIConnectionError            # Official client for interacting with the Groq Cloud AI inference API
+from dateutil import parser                                          # Robust fuzzy date utility to handle messy "Month Day, Year" formats
+import os                                                            # Interface for interacting with the operating system and file paths
+from dotenv import load_dotenv                                       # Utility to securely load environment variables from a .env file
 
 # 1. Page Configuration
 st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
 # 2. API Key Configuration
-load_dotenv()
+# Load variables from .env. `override=True` ensures the .env file takes
+# precedence over any system-level environment variables.
+load_dotenv(override=True)
 
-# Step 1: Check your local .env file first (This prevents the Streamlit crash)
+# Priority 1: Attempt to load the key from the local .env file.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Step 2: ONLY if the local key is missing, check Streamlit Cloud Secrets
-if not GROQ_API_KEY:
+# Uncomment the next line if you want to test NOT having .env file.
+# It is necessary because even if .env is empty then GROQ_API_KEY is loaded from secrets.toml in the previous line
+# GROQ_API_KEY = None
+
+key_source = None
+if GROQ_API_KEY:
+    key_source = ".env file"
+# Priority 2: If no key is found in .env, fall back to Streamlit Secrets.
+# This is the standard method for apps deployed to Streamlit Community Cloud.
+else:
     try:
-        # We only touch st.secrets if we haven't found a key locally
         GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
+        if GROQ_API_KEY:
+            key_source = "Streamlit Secrets"
     except Exception:
-        # If we are local and there's no secrets file, this catch prevents the crash
+        # This handles local runs where st.secrets doesn't exist or is empty.
         GROQ_API_KEY = None
 
 if not GROQ_API_KEY:
     st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
     st.stop()
+else:
+    # This is a safe way to confirm the key is loaded without printing the key itself. Use st.sidebar.info for a less intrusive message.
+    st.sidebar.info(f"🔑 API Key loaded successfully from {key_source}.")
+    client = Groq(api_key=GROQ_API_KEY)
+
+    # Check if the API key is valid
+    @st.cache_resource
+    def verify_groq_connection():
+        """Standard try-except block to verify the API key is actually working."""
+        try:
+            # Lightweight call to verify connectivity and key validity
+            client.models.list()
+            return True, "API Connection Active"
+        except APIStatusError as e:
+            if e.status_code == 401:
+                return False, "Invalid API Key. Please check your credentials."
+            return False, f"Groq API Error: {e.status_code}"
+        except APIConnectionError:
+            return False, "Could not connect to Groq. Check your internet."
+        except Exception as e:
+            return False, f"Unexpected Error: {str(e)}"
+
+    is_healthy, health_message = verify_groq_connection()
+
+    if is_healthy:
+        st.sidebar.success(f"✅ {health_message}")
+    else:
+        st.sidebar.error(f"❌ {health_message}")
+        st.error("The Groq API is unreachable or the key provided is invalid.")
+        st.stop()
 
 # Initialize the client with the successfully found key
 client = Groq(api_key=GROQ_API_KEY.strip())
