@@ -57,7 +57,7 @@ else:
             return True, "API Connection Active"
         except APIStatusError as e:
             if e.status_code == 401:
-                return False, "Invalid API Key in ({API_KEY_source})."
+                return False, "Invalid GROQ_API_KEY."
             return False, f"Groq API Error: {e.status_code}"
         except APIConnectionError:
             return False, "Could not connect to Groq. Check your internet."
@@ -67,7 +67,7 @@ else:
     is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
 
     if is_healthy:
-        st.sidebar.success(f"✅ {health_message} ({API_KEY_source})")
+        st.sidebar.success(f"✅ {health_message}")
     else:
         st.error(f"**Connection Error:** {health_message}")
         st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration "
