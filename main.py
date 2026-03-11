@@ -57,22 +57,21 @@ else:
             return True, "API Connection Active"
         except APIStatusError as e:
             if e.status_code == 401:
-                return False, "Invalid API Key in {API_KEY_source}."
-                "Please check your credentials."
+                return False, "Invalid API Key in ({API_KEY_source})."
+            return False, f"Groq API Error: {e.status_code}"
         except APIConnectionError:
             return False, "Could not connect to Groq. Check your internet."
         except Exception as e:
             return False, f"Unexpected Error: {str(e)}"
         
-    # We pass the active 'client' and the 'GROQ_API_KEY' string
     is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
 
     if is_healthy:
         st.sidebar.success(f"✅ {health_message} ({API_KEY_source})")
     else:
-        st.sidebar.error(f"❌ {health_message}")
         st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your {API_KEY_source} configuration and try refreshing the page.")
+        st.info(f"Please check your GROQ_API_KEY in {API_KEY_source} configuration
+                try refreshing the page.")
         st.stop()
 
 if 'cleaned_df' not in st.session_state:
