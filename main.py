@@ -57,8 +57,8 @@ else:
             return True, "API Connection Active"
         except APIStatusError as e:
             if e.status_code == 401:
-                return False, "Invalid API Key. Please check your credentials."
-            return False, f"Groq API Error: {e.status_code}"
+                return False, "Invalid API Key in {API_KEY_source}."
+                "Please check your credentials."
         except APIConnectionError:
             return False, "Could not connect to Groq. Check your internet."
         except Exception as e:
