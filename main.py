@@ -70,8 +70,8 @@ else:
         st.sidebar.success(f"✅ {health_message} ({API_KEY_source})")
     else:
         st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your GROQ_API_KEY in {API_KEY_source} configuration
-                try refreshing the page.")
+        st.info(f"Please check your GROQ_API_KEY in {API_KEY_source} configuration "
+        "and try refreshing the page.")
         st.stop()
 
 if 'cleaned_df' not in st.session_state:
