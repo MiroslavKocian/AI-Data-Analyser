@@ -1,34 +1,43 @@
-import streamlit as st                                               # Framework for building the web interface and dashboard
-import pandas as pd                                                  # Library for high-performance data manipulation and analysis
-import sqlite3                                                       # Built-in SQL database engine for local data warehousing
-import json                                                          # Module for parsing and formatting JSON data for AI exchange
-import re                                                            # Regular expression module for advanced text and numeric cleaning
-from groq import Groq, APIStatusError, APIConnectionError            # Official client for interacting with the Groq Cloud AI inference API
-from dateutil import parser                                          # Robust fuzzy date utility to handle messy "Month Day, Year" formats
-import os                                                            # Interface for interacting with the operating system and file paths
-from dotenv import dotenv_values                        # Utility to securely load environment variables from a .env file
+import os
+import json
+import sqlite3
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
+from dateutil import parser
+from groq import Groq, APIStatusError, APIConnectionError
 
 # Page Configuration
 st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
 # API Key Configuration
-main_absolute_folder_path = os.path.dirname(os.path.abspath(__file__))
-env_file_path = os.path.join(main_absolute_folder_path, ".env")
-GROQ_API_KEY = None
+# Remove any existing 'GROQ_API_KEY because old ones can be cached'
+if "GROQ_API_KEY" in os.environ:
+    del os.environ["GROQ_API_KEY"]
+
+# Priority 1: Load from local .env file
+# Reads .env file 
+# Copy the variables inside it to "Environment Variables" (the os.environ dictionary)
+# Ensure he .env file takes precedence over system variables with True
+load_dotenv(override=True)
+
+# Get the GROQ_API_KEY from os.environ dictionary
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
 API_KEY_source = None
+client = None
 
-# Try to load from local .env file
-if os.path.exists(env_file_path):
-    env_dict = dotenv_values(env_file_path)    
-    if "GROQ_API_KEY" in env_dict and env_dict["GROQ_API_KEY"]:
-        GROQ_API_KEY = env_dict["GROQ_API_KEY"].strip()
-        API_KEY_source = ".env file"
+if GROQ_API_KEY:
+    API_KEY_source = ".env file"
 
-# If no .env file found, check Streamlit Secrets 
+# Priority 2: Streamlit Secrets (Deployment)
 if not GROQ_API_KEY:
-    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
-    if GROQ_API_KEY:
-        API_KEY_source = "Streamlit Secrets"
+    try:
+        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
+        if GROQ_API_KEY:
+            API_KEY_source = "Streamlit Secrets"
+    except (FileNotFoundError, AttributeError):
+        GROQ_API_KEY = None
 
 if not GROQ_API_KEY:
     st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
@@ -37,16 +46,10 @@ else:
     client = Groq(api_key=GROQ_API_KEY)
 
     # Check if the API key is valid
-# 1. THE REWORKED CACHED FUNCTION
-    # We pass '_client' (with the underscore) so Streamlit doesn't try to hash 
-    # the entire client object, and we pass '_api_key' so the cache 
-    # refreshes if the key string changes.
+    # Pass '_client' (with the underscore) so Streamlit doesn't try to hash 
+    # the entire client object and pass 'api_key' so the cache refreshes if it changes.
     @st.cache_resource
-    def verify_groq_connection(_client, _api_key):
-        """
-        Verifies Groq API connectivity. 
-        The cache refreshes automatically if the _api_key changes.
-        """
+    def verify_groq_connection(_client, api_key):
         try:
             _client.models.list()
             return True, "API Connection Active"
@@ -58,27 +61,19 @@ else:
             return False, "Could not connect to Groq. Check your internet."
         except Exception as e:
             return False, f"Unexpected Error: {str(e)}"
-
-    # 2. RUN THE CHECK
+        
     # We pass the active 'client' and the 'GROQ_API_KEY' string
     is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
 
-    # 3. PROFESSIONAL UI PRESENTATION
     if is_healthy:
-        st.sidebar.success(f"✅ {health_message} ({key_source})")
+        st.sidebar.success(f"✅ {health_message} ({API_KEY_source})")
     else:
-        # Show specific error in the sidebar
         st.sidebar.error(f"❌ {health_message}")
-        
-        # Show clear instructions in the main area
         st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your {key_source} configuration and try refreshing the page.")
+        st.info(f"Please check your {API_KEY_source} configuration and try refreshing the page.")
         
         # Stop the app to prevent further crashes
         st.stop()
-
-# Initialize the client with the successfully found key
-client = Groq(api_key=GROQ_API_KEY.strip())
 
 if 'cleaned_df' not in st.session_state:
     st.session_state.cleaned_df = None
