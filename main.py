@@ -26,14 +26,16 @@ env_path = os.path.join(BASE_DIR, ".env")
 
 # --- DIAGNOSTIC START ---
 # Remove these two lines once you find the problem
-# st.sidebar.write(f"DEBUG: Path: {env_path}")
-# st.sidebar.write(f"DEBUG: File Found?: {os.path.exists(env_path)}")
+st.sidebar.write(f"DEBUG: Path: {env_path}")
+st.sidebar.write(f"DEBUG: File Found?: {os.path.exists(env_path)}")
 # --- DIAGNOSTIC END ---
 
 if os.path.exists(env_path):
-    load_dotenv(env_path, override=True)
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    if GROQ_API_KEY:
+    # This reads the file directly into a Python Dictionary
+    env_dict = dotenv_values(env_path)
+    
+    if "GROQ_API_KEY" in env_dict and env_dict["GROQ_API_KEY"]:
+        GROQ_API_KEY = env_dict["GROQ_API_KEY"].strip()
         key_source = ".env file"
 
 # 2. If no .env file, check Streamlit Secrets
