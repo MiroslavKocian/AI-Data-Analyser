@@ -10,6 +10,26 @@ from groq import Groq, APIStatusError, APIConnectionError
 # Page Configuration
 st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
 
+@st.cache_resource
+def verify_groq_connection(_client, api_key):
+    """
+    Pass '_client' (with the underscore) so Streamlit doesn't try to hash 
+    the entire client object and pass 'api_key' so the cache refreshes if it changes.
+    """
+    if not api_key:
+        return False, "No API Key provided."
+    try:
+        _client.models.list()
+        return True, "API Connection Active"
+    except APIStatusError as e:
+        if e.status_code == 401:
+            return False, "Invalid GROQ_API_KEY."
+        return False, f"Groq API Error: {e.status_code}"
+    except APIConnectionError:
+        return False, "Could not connect to Groq. Check your internet."
+    except Exception as e:
+        return False, f"Unexpected Error: {str(e)}"
+
 # API Key Configuration
 # Remove any existing 'GROQ_API_KEY because old ones can be cached'
 if "GROQ_API_KEY" in os.environ:
@@ -46,38 +66,20 @@ if not GROQ_API_KEY:
     st.stop()
 else:
     client = Groq(api_key=GROQ_API_KEY)
-
-    # Check if the API key is valid
-    # Pass '_client' (with the underscore) so Streamlit doesn't try to hash 
-    # the entire client object and pass 'api_key' so the cache refreshes if it changes.
-    @st.cache_resource
-    def verify_groq_connection(_client, api_key):
-        try:
-            _client.models.list()
-            return True, "API Connection Active"
-        except APIStatusError as e:
-            if e.status_code == 401:
-                return False, "Invalid GROQ_API_KEY."
-            return False, f"Groq API Error: {e.status_code}"
-        except APIConnectionError:
-            return False, "Could not connect to Groq. Check your internet."
-        except Exception as e:
-            return False, f"Unexpected Error: {str(e)}"
-        
     is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
 
     if is_healthy:
         st.sidebar.success(f"✅ {health_message}")
     else:
         st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration "
+        st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration"
         "and try refreshing the page.")
         st.stop()
 
 if 'cleaned_df' not in st.session_state:
     st.session_state.cleaned_df = None
 
-def flexible_date_search(date_val):
+def try_parse_date(date_val):
     """Parses 'March 10, 2026' and returns None for truly empty cells."""
     if not date_val or str(date_val).lower() in ['nan', 'none', 'null', '', '0']:
         return None
@@ -87,7 +89,7 @@ def flexible_date_search(date_val):
     except:
         return None
 
-def ai_clean_agent(df):
+def ai_clean_agent(client, df):
     """Strict Parser: Fixes Region casing and stops hallucinations in Product_Category."""
     data_records = df.fillna("").astype(str).to_dict(orient='records')
     
@@ -116,7 +118,7 @@ def ai_clean_agent(df):
     return pd.DataFrame(clean_output.get("records", []))
 
 def main():
-    st.title("🚀 Enterprise AI Data Warehouse")
+    st.title("🚀 Enterprise AI Sales Analyser")
     st.markdown("---")
 
     st.sidebar.header("📂 Data Ingestion")
@@ -131,7 +133,7 @@ def main():
         if st.sidebar.button("🪄 Run AI Cleaning & SQL Import"):
             with st.spinner("Processing..."):
                 try:
-                    df = ai_clean_agent(raw_df)
+                    df = ai_clean_agent(client, raw_df)
                     df.columns = [str(c).strip().title() for c in df.columns]
                     # --- THE REGION PART ---
                     # This ensures "SOUTH" becomes "South" and removes extra spaces
@@ -142,7 +144,7 @@ def main():
                     
                     # 1. Precise Date Parsing
                     if 'Date' in df.columns:
-                        df['Date'] = df['Date'].apply(flexible_date_search)
+                        df['Date'] = df['Date'].apply(try_parse_date)
                     
                     # 2. Number Conversion (keeps 0 for math, but keeps display clean)
                     for col in ['Units_Sold', 'Unit_Price']:
