@@ -41,8 +41,6 @@ if not GROQ_API_KEY:
     st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
     st.stop()
 else:
-    # This is a safe way to confirm the key is loaded without printing the key itself. Use st.sidebar.info for a less intrusive message.
-    st.sidebar.info(f"🔑 API Key loaded successfully from {key_source}.")
     client = Groq(api_key=GROQ_API_KEY)
 
     # Check if the API key is valid
@@ -65,7 +63,7 @@ else:
     is_healthy, health_message = verify_groq_connection()
 
     if is_healthy:
-        st.sidebar.success(f"✅ {health_message}")
+        st.sidebar.success(f"✅ {health_message} ({key_source})")
     else:
         st.sidebar.error(f"❌ {health_message}")
         st.error("The Groq API is unreachable or the key provided is invalid.")
