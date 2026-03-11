@@ -24,6 +24,12 @@ key_source = None
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(BASE_DIR, ".env")
 
+# --- DIAGNOSTIC START ---
+# Remove these two lines once you find the problem
+# st.sidebar.write(f"DEBUG: Path: {env_path}")
+# st.sidebar.write(f"DEBUG: File Found?: {os.path.exists(env_path)}")
+# --- DIAGNOSTIC END ---
+
 if os.path.exists(env_path):
     load_dotenv(env_path, override=True)
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
