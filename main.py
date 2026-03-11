@@ -16,13 +16,16 @@ st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wid
 # precedence over any system-level environment variables.
 
 # 1. Try to load from local .env file
-load_dotenv(override=True)
 
 GROQ_API_KEY = None
 key_source = None
 
 # Check if .env file ACTUALLY exists on the disk
-if os.path.exists(".env"):
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(BASE_DIR, ".env")
+
+if os.path.exists(env_path):
+    load_dotenv(env_path, override=True)
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     if GROQ_API_KEY:
         key_source = ".env file"
@@ -35,7 +38,7 @@ if not GROQ_API_KEY:
             key_source = "Streamlit Secrets"
     except Exception:
         pass
-    
+
 # 3. Final Fallback (System Environment)
 if not GROQ_API_KEY:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
