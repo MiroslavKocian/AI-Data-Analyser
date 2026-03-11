@@ -15,7 +15,7 @@ st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wid
 if "GROQ_API_KEY" in os.environ:
     del os.environ["GROQ_API_KEY"]
 
-# Priority 1: Load from local .env file
+# Priority 1: Load GROQ_API_KEY from local .env file
 # Reads .env file 
 # Copy the variables inside it to "Environment Variables" (the os.environ dictionary)
 # Ensure he .env file takes precedence over system variables with True
@@ -28,15 +28,17 @@ API_KEY_source = None
 client = None
 
 if GROQ_API_KEY:
+    GROQ_API_KEY = GROQ_API_KEY.strip()
     API_KEY_source = ".env file"
 
-# Priority 2: Streamlit Secrets (Deployment)
+# Priority 2: Load GROQ_API_KEY from Streamlit Secrets if not using .env
 if not GROQ_API_KEY:
     try:
         GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
         if GROQ_API_KEY:
+            GROQ_API_KEY = GROQ_API_KEY.strip()
             API_KEY_source = "Streamlit Secrets"
-    except (FileNotFoundError, AttributeError):
+    except Exception:
         GROQ_API_KEY = None
 
 if not GROQ_API_KEY:
@@ -71,8 +73,6 @@ else:
         st.sidebar.error(f"❌ {health_message}")
         st.error(f"**Connection Error:** {health_message}")
         st.info(f"Please check your {API_KEY_source} configuration and try refreshing the page.")
-        
-        # Stop the app to prevent further crashes
         st.stop()
 
 if 'cleaned_df' not in st.session_state:
