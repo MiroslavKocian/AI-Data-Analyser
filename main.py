@@ -7,9 +7,6 @@ from dotenv import load_dotenv
 from dateutil import parser
 from groq import Groq, APIStatusError, APIConnectionError
 
-# Page Configuration
-st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
-
 # Constants
 LLM_MODEL = "llama-3.1-8b-instant"
 
@@ -38,13 +35,12 @@ def try_parse_date(date_val):
     if not date_val or str(date_val).lower() in ['nan', 'none', 'null', '', '0']:
         return None
     try:
-        # parser.parse is highly effective for 'Month Day, Year' formats
         return parser.parse(str(date_val)).date()
-    except:
+    except (ValueError, TypeError):
         return None
 
 def ai_clean_agent(client, df):
-    """Strict Parser: Fixes Region casing and stops hallucinations in Product_Category."""
+    """Strict Parser: Fix Region casing and stop hallucinations in Product_Category."""
     data_records = df.fillna("").astype(str).to_dict(orient='records')
     
     prompt = f"""
@@ -65,7 +61,7 @@ def ai_clean_agent(client, df):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model=LLM_MODEL,
-        temperature=0,  # This 1 line stops the "creativity" and guessing
+        temperature=0,  # Set to 0 for deterministic output and to reduce hallucinations
         response_format={"type": "json_object"}
     )
     clean_output = json.loads(response.choices[0].message.content)
@@ -73,6 +69,7 @@ def ai_clean_agent(client, df):
 
 def main():
     # --- 1. Setup & Configuration ---
+    st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
     st.title("🚀 Enterprise AI Data Warehouse")
 
     if "GROQ_API_KEY" in os.environ:
