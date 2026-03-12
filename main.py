@@ -12,10 +12,6 @@ LLM_MODEL = "llama-3.1-8b-instant"
 
 @st.cache_resource
 def verify_groq_connection(_client, api_key):
-    """
-    Pass '_client' (with the underscore) so Streamlit doesn't try to hash 
-    the entire client object and pass 'api_key' so the cache refreshes if it changes.
-    """
     if not api_key:
         return False, "No API Key provided."
     try:
@@ -31,7 +27,6 @@ def verify_groq_connection(_client, api_key):
         return False, f"Unexpected Error: {str(e)}"
 
 def try_parse_date(date_val):
-    """Parses 'March 10, 2026' and returns None for truly empty cells."""
     if not date_val or str(date_val).lower() in ['nan', 'none', 'null', '', '0']:
         return None
     try:
@@ -40,7 +35,6 @@ def try_parse_date(date_val):
         return None
 
 def ai_clean_agent(client, df):
-    """Strict Parser: Fix Region casing and stop hallucinations in Product_Category."""
     data_records = df.fillna("").astype(str).to_dict(orient='records')
     
     prompt = f"""
@@ -51,8 +45,6 @@ def ai_clean_agent(client, df):
     STRICT RULES:
     1. REGION CASING: 'SOUTH' or 'south' MUST become 'South'. Always use Proper Case for Regions.
     2. NO GUESSING (GLOBAL): If ANY cell is empty or 'nan', return null for that field. 
-       DO NOT invent dates (like '2026-01-01'), DO NOT invent categories (like 'Electronics'), 
-       and DO NOT copy values from previous rows.
     3. DATE: 'March 10, 2026' -> '2026-03-10'.
     4. ALIGNMENT: Move '5' from Category to Units_Sold if it was shifted.
     5. SCHEMA: ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"]
@@ -61,7 +53,7 @@ def ai_clean_agent(client, df):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model=LLM_MODEL,
-        temperature=0,  # Set to 0 for deterministic output and to reduce hallucinations
+        temperature=0,
         response_format={"type": "json_object"}
     )
     clean_output = json.loads(response.choices[0].message.content)
@@ -72,54 +64,61 @@ def main():
     st.set_page_config(page_title="AI Sales Analyser", page_icon="🚀", layout="wide")
     st.title("🚀 Enterprise AI Data Warehouse")
 
-    if "GROQ_API_KEY" in os.environ:
-        del os.environ["GROQ_API_KEY"]
-    
     load_dotenv(override=True)
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    API_KEY_source = None
-
-    if GROQ_API_KEY:
-        GROQ_API_KEY = GROQ_API_KEY.strip()
-        API_KEY_source = ".env file"
-
+    
+    # Simple Fallback for Secrets
     if not GROQ_API_KEY:
         try:
             GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
-            if GROQ_API_KEY:
-                GROQ_API_KEY = GROQ_API_KEY.strip()
-                API_KEY_source = "Streamlit Secrets"
-        except Exception:
+        except:
             GROQ_API_KEY = None
 
     if not GROQ_API_KEY:
-        st.error("🔑 API Key Missing! Please check your .env file or Streamlit Secrets.")
+        st.error("🔑 API Key Missing!")
         st.stop()
     
     client = Groq(api_key=GROQ_API_KEY)
     is_healthy, health_message = verify_groq_connection(client, GROQ_API_KEY)
 
-    if is_healthy:
-        st.sidebar.success(f"✅ {health_message}")
-    else:
+    if not is_healthy:
         st.error(f"**Connection Error:** {health_message}")
-        st.info(f"Please check your GROQ_API_KEY in ({API_KEY_source}) configuration"
-        "and try refreshing the page.")
         st.stop()
 
+    # Session State for Data Persistence
     if 'cleaned_df' not in st.session_state:
         st.session_state.cleaned_df = None
+    if 'active_df' not in st.session_state:
+        st.session_state.active_df = None
 
-    # --- 2. UI Layout ---
     st.markdown("---")
 
+    # --- 2. Ingestion Sidebar ---
     st.sidebar.header("📂 Data Ingestion")
     uploaded_file = st.sidebar.file_uploader("Upload excel", type=['xlsx'])
 
+    # The Button: Load Sample Data
+    if st.sidebar.button("🧪 Load Sample Data"):
+        sample_data = [
+            ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"],
+            ["2026-01-15", "North", "Electronics", "10", "500"],
+            ["15/02/2026", "SOUTH", "Furniture", "5 pieces", "1200"],
+            ["March 10, 2026", "West", "N/A", "15", "300"],
+            ["2026.04.12", "East", "Electronics", "", "150"],
+            ["", "North", "Appliances", "8", "Check with Finance"]
+        ]
+        st.session_state.active_df = pd.DataFrame(sample_data[1:], columns=sample_data[0])
+        st.session_state.cleaned_df = None # Reset previous cleaning
+
+    # Handle Uploaded File (Overrides sample if new file uploaded)
     if uploaded_file:
-        # Keep empty cells empty by filling NaNs with empty strings immediately
-        raw_df = pd.read_excel(uploaded_file).fillna("")
-        st.subheader("⚠️ Raw Legacy Input (Direct from File)")
+        st.session_state.active_df = pd.read_excel(uploaded_file).fillna("")
+        st.session_state.cleaned_df = None
+
+    # --- 3. Processing Logic (Shared between File and Sample) ---
+    if st.session_state.active_df is not None:
+        raw_df = st.session_state.active_df
+        st.subheader("⚠️ Raw Legacy Input (Preview)")
         st.dataframe(raw_df.astype(str), width=1200)
 
         if st.sidebar.button("🪄 Run AI Cleaning & SQL Import"):
@@ -128,11 +127,9 @@ def main():
                     df = ai_clean_agent(client, raw_df)
                     df.columns = [str(c).strip().title() for c in df.columns]
                     
-                    # 1. Precise Date Parsing
                     if 'Date' in df.columns:
                         df['Date'] = df['Date'].apply(try_parse_date)
                     
-                    # 2. Number Conversion (keeps 0 for math, but keeps display clean)
                     for col in ['Units_Sold', 'Unit_Price']:
                         if col in df.columns:
                             df[col] = df[col].astype(str).str.replace(r'[^\d.]', '', regex=True)
@@ -140,35 +137,31 @@ def main():
                     
                     df['Total_Revenue'] = df['Units_Sold'] * df['Unit_Price']
                     
-                    # Final display cleanup: ensure local and cloud show the same clean results
+                    # Display Cleanup
                     display_df = df.copy()
-
-                    # 1. Force Date to a consistent string format
                     if 'Date' in display_df.columns:
                         display_df['Date'] = pd.to_datetime(display_df['Date'], errors='coerce').dt.strftime('%Y-%m-%d')
 
-                    # 2. Convert entire DF to string and scrub all versions of "nan"
-                    # This is the "Force" part that removes the text you see in the browser
                     display_df = display_df.astype(str).replace(['nan', 'NaN', 'None', 'NaT'], '')
-                    
                     st.session_state.cleaned_df = display_df
 
-                    # 3. Store in SQL (SQL handles actual NULLs better than 'nan' strings)
+                    # SQL Store
                     conn = sqlite3.connect('sales_intelligence.db')
                     df.to_sql('sales', conn, if_exists='replace', index=False)
                     conn.close()
                     
-                    st.success("Analysis Ready: Empty cells preserved and dates fixed!")
+                    st.success("Analysis Ready!")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
+        # --- 4. Analytics Interface ---
         if st.session_state.cleaned_df is not None:
             st.subheader("✅ Cleaned & Structured Data")
             st.dataframe(st.session_state.cleaned_df, width=1200)
 
             st.markdown("---")
             st.subheader("🗣️ AI SQL Analyst")
-            user_query = st.text_input("Ask a question (e.g., 'Total revenue for March'):")
+            user_query = st.text_input("Ask a question:")
 
             if user_query:
                 sql_prompt = f"Table 'sales' has [Date, Region, Product_Category, Units_Sold, Unit_Price, Total_Revenue]. Convert to SQLite: {user_query}. Return ONLY SQL code."
@@ -184,7 +177,7 @@ def main():
                 except Exception as e:
                     st.error(f"SQL Error: {e}")
     else:
-        st.session_state.cleaned_df = None
+        st.info("Please upload an Excel file or click 'Load Sample Data' in the sidebar to begin.")
 
 if __name__ == "__main__":
     main()
