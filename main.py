@@ -13,13 +13,12 @@ class Config:
     DB_NAME = 'sales_intelligence.db'
     REQUIRED_COLUMNS = ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"]
     
-    # Presne definované dáta pre Load Sample
     SAMPLE_RECORDS = [
         {"Date": "2026-01-15", "Region": "North", "Product_Category": "Electronics", "Units_Sold": "10", "Unit_Price": "500"},
-        {"Date": "15/02/2026", "Region": "SOUTH", "Product_Category": "Furniture", "Units_Sold": "5 pieces", "Unit_Price": "1200"},
+        {"Date": "15/02/2026", "Region": "SOUTH", "Product_Category": "Furniture", "Units_Sold": "5", "Unit_Price": "1200"},
         {"Date": "March 10, 2026", "Region": "West", "Product_Category": "N/A", "Units_Sold": "15", "Unit_Price": "300"},
-        {"Date": "2026.04.12", "Region": "  East", "Product_Category": "Electronics", "Units_Sold": "", "Unit_Price": "150"},
-        {"Date": "", "Region": "North", "Product_Category": "Appliances", "Units_Sold": "8", "Unit_Price": "Check with Finance"}
+        {"Date": "2026.04.12", "Region": "East", "Product_Category": "", "Units_Sold": "20", "Unit_Price": "150"},
+        {"Date": "", "Region": "North", "Product_Category": "Appliances", "Units_Sold": "8", "Unit_Price": "0"}
     ]
 
 # --- 2. CORE SERVICES ---
@@ -39,7 +38,6 @@ class DataTransformer:
 
     @staticmethod
     def scrub_for_display(df: pd.DataFrame) -> pd.DataFrame:
-        # Čistenie len pre finálnu tabuľku (Processed Data)
         return df.astype(str).replace(['nan', 'NaN', 'None', 'NaT', 'null'], '')
 
 class AIProvider:
@@ -47,9 +45,8 @@ class AIProvider:
         self.client = Groq(api_key=api_key)
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Pre-cleaning sa deje TU, interne pre AI, nemení st.session_state.raw_data
-        input_data = df.astype(str).replace(['N/A', 'n/a', 'nan'], "").to_dict(orient='records')
-        
+        # Pre AI interne vyčistíme N/A, aby nehalucinovalo
+        input_data = df.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
         prompt = f"""
         Clean this sales data into JSON.
         STRICT: Proper Case Regions. No guessing categories—if empty, return null.
@@ -101,16 +98,16 @@ class UIRenderer:
         file = st.sidebar.file_uploader("", type=['xlsx'], label_visibility="collapsed")
         
         if st.sidebar.button("🧪 Load Sample Data"):
-            # Vytvárame kópiu, aby sme nemali referenciu na Config objekt
             StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
         
         elif file and st.session_state.current_file != file.name:
-            StateManager.load_new_data(pd.read_excel(file).fillna(""), file.name)
+            # KLÚČOVÁ ZMENA: keep_default_na=False zabezpečí, že N/A zostane ako text "N/A"
+            raw_df = pd.read_excel(file, keep_default_na=False)
+            StateManager.load_new_data(raw_df, file.name)
 
     @staticmethod
     def handle_raw_data_view(ai_engine: AIProvider):
         st.subheader("⚠️ Raw Legacy Input")
-        # Zobrazujeme presne to, čo je v session_state (vrátane N/A)
         st.dataframe(st.session_state.raw_data, use_container_width=True)
 
         if st.sidebar.button("🪄 Run AI Process"):
@@ -140,7 +137,6 @@ class UIRenderer:
 class PipelineManager:
     @staticmethod
     def execute_cleaning_pipeline(ai_engine: AIProvider, raw_df: pd.DataFrame):
-        # AI spracuje kópiu dát
         df = ai_engine.clean_data_with_ai(raw_df)
         
         df.columns = [c.strip().title() for c in df.columns]
