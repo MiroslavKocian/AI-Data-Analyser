@@ -13,6 +13,7 @@ class Config:
     DB_NAME = 'sales_intelligence.db'
     REQUIRED_COLUMNS = ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"]
     
+    # Presne definované dáta pre Load Sample
     SAMPLE_RECORDS = [
         {"Date": "2026-01-15", "Region": "North", "Product_Category": "Electronics", "Units_Sold": "10", "Unit_Price": "500"},
         {"Date": "15/02/2026", "Region": "SOUTH", "Product_Category": "Furniture", "Units_Sold": "5", "Unit_Price": "1200"},
@@ -38,6 +39,7 @@ class DataTransformer:
 
     @staticmethod
     def scrub_for_display(df: pd.DataFrame) -> pd.DataFrame:
+        # Čistenie len pre finálnu tabuľku (Processed Data)
         return df.astype(str).replace(['nan', 'NaN', 'None', 'NaT', 'null'], '')
 
 class AIProvider:
@@ -45,7 +47,9 @@ class AIProvider:
         self.client = Groq(api_key=api_key)
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Pre-cleaning sa deje TU, interne pre AI, nemení st.session_state.raw_data
         input_data = df.astype(str).replace(['N/A', 'n/a', 'nan'], "").to_dict(orient='records')
+        
         prompt = f"""
         Clean this sales data into JSON.
         STRICT: Proper Case Regions. No guessing categories—if empty, return null.
@@ -76,13 +80,13 @@ class StateManager:
     def initialize():
         if 'raw_data' not in st.session_state: st.session_state.raw_data = None
         if 'processed_data' not in st.session_state: st.session_state.processed_data = None
-        # NEW: Track the current active file to prevent aggressive reruns resetting the state
         if 'current_file' not in st.session_state: st.session_state.current_file = None
 
     @staticmethod
-    def load_new_data(df: pd.DataFrame):
+    def load_new_data(df: pd.DataFrame, source_id: str):
         st.session_state.raw_data = df
         st.session_state.processed_data = None
+        st.session_state.current_file = source_id
 
 # --- 4. UI COMPONENTS ---
 class UIRenderer:
@@ -97,17 +101,16 @@ class UIRenderer:
         file = st.sidebar.file_uploader("", type=['xlsx'], label_visibility="collapsed")
         
         if st.sidebar.button("🧪 Load Sample Data"):
-            StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS))
-            st.session_state.current_file = "sample_data"
-        elif file:
-            # NEW LOGIC: Only trigger a reload if the file name changes
-            if st.session_state.current_file != file.name:
-                StateManager.load_new_data(pd.read_excel(file).fillna(""))
-                st.session_state.current_file = file.name
+            # Vytvárame kópiu, aby sme nemali referenciu na Config objekt
+            StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
+        
+        elif file and st.session_state.current_file != file.name:
+            StateManager.load_new_data(pd.read_excel(file).fillna(""), file.name)
 
     @staticmethod
     def handle_raw_data_view(ai_engine: AIProvider):
         st.subheader("⚠️ Raw Legacy Input")
+        # Zobrazujeme presne to, čo je v session_state (vrátane N/A)
         st.dataframe(st.session_state.raw_data, use_container_width=True)
 
         if st.sidebar.button("🪄 Run AI Process"):
@@ -128,7 +131,8 @@ class UIRenderer:
             st.code(sql_code, language="sql")
             with sqlite3.connect(Config.DB_NAME) as conn:
                 try:
-                    st.dataframe(pd.read_sql_query(sql_code, conn), use_container_width=True)
+                    res = pd.read_sql_query(sql_code, conn)
+                    st.dataframe(res, use_container_width=True)
                 except Exception as e:
                     st.error(f"SQL Error: {e}")
 
@@ -136,6 +140,7 @@ class UIRenderer:
 class PipelineManager:
     @staticmethod
     def execute_cleaning_pipeline(ai_engine: AIProvider, raw_df: pd.DataFrame):
+        # AI spracuje kópiu dát
         df = ai_engine.clean_data_with_ai(raw_df)
         
         df.columns = [c.strip().title() for c in df.columns]
