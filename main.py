@@ -45,7 +45,6 @@ class AIProvider:
         self.client = Groq(api_key=api_key)
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Pre AI interne vyčistíme N/A, aby nehalucinovalo
         input_data = df.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
         prompt = f"""
         Clean this sales data into JSON.
@@ -90,7 +89,7 @@ class UIRenderer:
     @staticmethod
     def setup_page():
         st.set_page_config(page_title="AI Sales Analyser", layout="wide")
-        st.title("🚀 Enterprise AI Data Warehouse")
+        st.title("🚀 AI Sales Analyser")
 
     @staticmethod
     def handle_sidebar_ingestion():
@@ -101,7 +100,6 @@ class UIRenderer:
             StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
         
         elif file and st.session_state.current_file != file.name:
-            # KLÚČOVÁ ZMENA: keep_default_na=False zabezpečí, že N/A zostane ako text "N/A"
             raw_df = pd.read_excel(file, keep_default_na=False)
             StateManager.load_new_data(raw_df, file.name)
 
