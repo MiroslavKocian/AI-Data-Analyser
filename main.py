@@ -95,7 +95,7 @@ def main():
 
     # --- 2. Ingestion Sidebar ---
     st.sidebar.header("📂 Data Ingestion")
-    uploaded_file = st.sidebar.file_uploader("Upload excel", type=['xlsx'])
+    uploaded_file = st.sidebar.file_uploader("", type=['xlsx'])
 
     # The Button: Load Sample Data
     if st.sidebar.button("🧪 Load Sample Data"):
