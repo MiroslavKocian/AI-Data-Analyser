@@ -68,7 +68,7 @@ class AIProvider:
         return pd.DataFrame(records, columns=schema_columns)
 
     def generate_sql(self, user_query: str, columns: list) -> str:
-        prompt = f"Table 'sales' columns: {columns}. Convert to SQLite: {user_query}. Return ONLY SQL."
+        prompt = f"Table 'sales' exists with columns: {columns}. Generate a single SQLite SELECT query to answer: '{user_query}'. Return ONLY the raw SQL string without markdown."
         response = self.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=Config.LLM_MODEL
