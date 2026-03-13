@@ -1,0 +1,11 @@
+# Exclude database and spreadsheet files (Large/Binary)
+*.db
+*.xlsx
+
+# Exclude environment and local settings
+.env
+.vscode/
+.devcontainer/
+
+# Exclude dependency manifests if you aren't editing them
+# (Keep requirements.txt if you want Gemini to know your libraries)
