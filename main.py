@@ -14,11 +14,9 @@ class Config:
     REQUIRED_COLUMNS = ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"]
     
     SAMPLE_RECORDS = [
-        {"Date": "2026-01-15", "Region": "North", "Product_Category": "Electronics", "Units_Sold": "10", "Unit_Price": "500"},
-        {"Date": "15/02/2026", "Region": "SOUTH", "Product_Category": "Furniture", "Units_Sold": "5 pieces", "Unit_Price": "1200"},
-        {"Date": "March 10, 2026", "Region": "West", "Product_Category": "N/A", "Units_Sold": "15", "Unit_Price": "300"},
-        {"Date": "2026.04.12", "Region": "  East", "Product_Category": "Electronics", "Units_Sold": "", "Unit_Price": "150"},
-        {"Date": "", "Region": "North", "Product_Category": "Appliances", "Units_Sold": "8", "Unit_Price": "Check with Finance"}
+        {"Timestamp": "2026-01-15", "Territory": "North", "Revenue": "5000"},
+        {"Timestamp": "15/02/2026", "Territory": "SOUTH", "Revenue": "6000"},
+        {"Timestamp": "March 10, 2026", "Territory": "West", "Revenue": "4500"}
     ]
 
 # --- 2. CORE SERVICES ---
