@@ -1,10 +1,11 @@
-import os
 import json
+import os
 import sqlite3
+
 import pandas as pd
 import streamlit as st
-from dotenv import load_dotenv
 from dateutil import parser
+from dotenv import load_dotenv
 from openai import OpenAI
 
 # --- 1. CONFIGURATION ---
@@ -29,12 +30,14 @@ class Config:
 class Repository:
     @staticmethod
     def save_to_sqlite(df: pd.DataFrame):
+        """Persists the DataFrame to the SQLite database, replacing existing data."""
         with sqlite3.connect(Config.DB_NAME) as conn:
             df.to_sql('sales', conn, if_exists='replace', index=False)
 
 class DataTransformer:
     @staticmethod
     def parse_date_safely(value):
+        """Attempts to parse a date string into a date object, returning None on failure."""
         if not value or str(value).lower() in ['nan', 'none', 'null', '', '0']:
             return None
         try:
@@ -207,7 +210,8 @@ def initialize_application() -> AIProvider:
     load_dotenv(override=True)
     api_key = os.getenv("MISTRAL_API_KEY") or st.secrets.get("MISTRAL_API_KEY")
     if not api_key:
-        st.error("MISTRAL_API_KEY is missing. Please add it to your .env file."); st.stop()
+        st.error("MISTRAL_API_KEY is missing. Please add it to your .env file.")
+        st.stop()
     
     StateManager.initialize()
     return AIProvider(api_key)

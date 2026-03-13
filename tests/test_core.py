@@ -1,10 +1,11 @@
-import pytest
-import pandas as pd
-import sys
 import os
 import sqlite3
+import sys
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
 
 # Add parent directory to path so we can import 'main'
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
