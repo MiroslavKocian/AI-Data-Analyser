@@ -2,3 +2,8 @@
 .env
 .streamlit/secrets.toml
 __pycache__/
+*.xlsx
+.pytest_cache/
+.DS_Store
+venv/
+.venv/

@@ -14,3 +14,22 @@ This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** 
 * **Streamlit** (User Interface)
 * **SQLite** (Database)
 * **Groq / Llama 3.1** (LLM Engine)
+
+## 🚀 How to Run
+
+1.  **Clone the repository and navigate into it.**
+
+2.  **Set up your environment:**
+    *   Install the dependencies listed in `requirements.txt`.
+        ```bash
+        pip install -r requirements.txt
+        ```
+    *   Create a `.env` file in the root directory and add your Groq API key:
+        ```env
+        GROQ_API_KEY="gsk_YourSecretKey"
+        ```
+
+3.  **Run the application:**
+    ```bash
+    streamlit run main.py
+    ```
