@@ -1,8 +1,8 @@
-pandas
-streamlit
-python-dotenv
-python-dateutil
-pytest
+streamlit==1.31.0
+altair==4.2.2
+pandas==2.2.0
+python-dotenv==1.0.1
+python-dateutil==2.8.2
+pytest==8.0.0
 openai
-openpyxl
-altair
+openpyxl==3.1.2
