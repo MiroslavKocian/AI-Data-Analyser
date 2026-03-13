@@ -68,7 +68,18 @@ class AIProvider:
         return pd.DataFrame(records, columns=schema_columns)
 
     def generate_sql(self, user_query: str, columns: list) -> str:
-        prompt = f"Table 'sales' exists with columns: {columns}. Generate a single SQLite SELECT query to answer: '{user_query}'. IMPORTANT: If a column name contains spaces, you MUST enclose it in double quotes (e.g., \"My Column\"). Return ONLY the raw SQL string without markdown."
+        prompt = f"""
+        Act as an expert SQLite Data Analyst.
+        Table 'sales' has columns: {columns}.
+        
+        Goal: Generate a valid SQLite SELECT query to answer: "{user_query}"
+        
+        Guidelines:
+        1. For questions about trends or changes over time, SELECT the Date and the relevant metric column, and ORDER BY Date. Do NOT attempt to calculate row-by-row differences unless explicitly requested.
+        2. Column names with spaces or special characters (like %, $) MUST be enclosed in double quotes (e.g., "Unit Price", "Voda %").
+        3. If a JOIN is strictly necessary, EVERY column in the SELECT clause MUST be prefixed with its table alias to avoid ambiguity.
+        4. Return ONLY the raw SQL string (no markdown, no explanations).
+        """
         response = self.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=Config.LLM_MODEL
