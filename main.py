@@ -11,7 +11,6 @@ from groq import Groq
 class Config:
     LLM_MODEL = "llama-3.1-8b-instant"
     DB_NAME = 'sales_intelligence.db'
-    REQUIRED_COLUMNS = ["Date", "Region", "Product_Category", "Units_Sold", "Unit_Price"]
     
     SAMPLE_RECORDS = [
         {"Timestamp": "2026-01-15", "Territory": "North", "Revenue": "5000"},
@@ -44,12 +43,20 @@ class AIProvider:
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         input_data = df.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
+        schema_columns = [c.strip().title() for c in df.columns]
+
         prompt = f"""
-        Clean this sales data into JSON.
-        STRICT: Proper Case Regions. No guessing categories—if empty, return null.
-        SCHEMA: {Config.REQUIRED_COLUMNS}
-        INPUT: {json.dumps(input_data)}
-        Return ONLY JSON with 'records' key.
+        Clean and structure this data into a valid JSON object following these rules:
+        1. The output MUST be a JSON object with a single key 'records', containing a list of objects.
+        2. Each object in the list MUST use these keys, exactly as written in TitleCase: {schema_columns}.
+        3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing, use null.
+        4. Numeric columns: Extract only numbers (e.g., from '$1,200.50' or '15 units'). If non-numeric/missing, use 0.
+        5. Region columns: Trim whitespace and convert to Title Case (e.g., ' south ' becomes 'South').
+        6. Other text columns: If a value is empty or missing (like 'N/A'), use null. Do not guess data.
+
+        INPUT DATA: {json.dumps(input_data)}
+
+        Return ONLY the JSON object.
         """
         response = self.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
@@ -58,10 +65,10 @@ class AIProvider:
             response_format={"type": "json_object"}
         )
         records = json.loads(response.choices[0].message.content).get("records", [])
-        return pd.DataFrame(records)
+        return pd.DataFrame(records, columns=schema_columns)
 
-    def generate_sql(self, user_query: str) -> str:
-        prompt = f"Table 'sales' columns: {Config.REQUIRED_COLUMNS}. Convert to SQLite: {user_query}. Return ONLY SQL."
+    def generate_sql(self, user_query: str, columns: list) -> str:
+        prompt = f"Table 'sales' columns: {columns}. Convert to SQLite: {user_query}. Return ONLY SQL."
         response = self.client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=Config.LLM_MODEL
@@ -120,7 +127,8 @@ class UIRenderer:
         query = st.text_input("Ask a question about your data:")
         
         if query:
-            sql_code = ai_engine.generate_sql(query)
+            db_columns = st.session_state.processed_data.columns.tolist()
+            sql_code = ai_engine.generate_sql(query, db_columns)
             st.code(sql_code, language="sql")
             with sqlite3.connect(Config.DB_NAME) as conn:
                 try:
@@ -134,17 +142,7 @@ class PipelineManager:
     @staticmethod
     def execute_cleaning_pipeline(ai_engine: AIProvider, raw_df: pd.DataFrame):
         df = ai_engine.clean_data_with_ai(raw_df)
-        
-        df.columns = [c.strip().title() for c in df.columns]
-        if 'Date' in df.columns:
-            df['Date'] = df['Date'].apply(DataTransformer.parse_date_safely)
-        
-        for col in ['Units_Sold', 'Unit_Price']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0)
-        
-        df['Total_Revenue'] = df['Units_Sold'] * df['Unit_Price']
-        
+
         Repository.save_to_sqlite(df)
         st.session_state.processed_data = DataTransformer.scrub_for_display(df)
         st.success("Analysis Ready!")
