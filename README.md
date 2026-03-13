@@ -30,6 +30,14 @@ This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** 
         ```
 
 3.  **Run the application:**
+    Use the launcher script to automatically run tests before starting:
     ```bash
-    streamlit run main.py
+    python run_app.py
     ```
+
+## 🧪 Testing
+
+To run the automated test suite, simply execute:
+```bash
+pytest
+```
