@@ -46,30 +46,46 @@ class AIProvider:
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         """Uses LLM to normalize data into a strict JSON structure."""
-        input_data = df.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
         schema_columns = [c.strip().title() for c in df.columns]
+        cleaned_dfs = []
+        BATCH_SIZE = 10
+        total_rows = len(df)
+        progress_bar = st.progress(0, text="AI is analyzing data batches...")
 
-        prompt = f"""
-        Clean and structure this data into a valid JSON object following these rules:
-        1. The output MUST be a JSON object with a single key 'records', containing a list of objects.
-        2. Each object in the list MUST use these keys, exactly as written in TitleCase: {schema_columns}.
-        3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing, use null.
-        4. Numeric columns: Extract only numbers (e.g., from '$1,200.50' or '15 units'). If non-numeric/missing, use 0.
-        5. Region columns: Trim whitespace and convert to Title Case (e.g., ' south ' becomes 'South').
-        6. Other text columns: If a value is empty or missing (like 'N/A'), use null. Do not guess data.
+        for i in range(0, total_rows, BATCH_SIZE):
+            chunk = df.iloc[i : i + BATCH_SIZE]
+            input_data = chunk.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
 
-        INPUT DATA: {json.dumps(input_data)}
+            prompt = f"""
+            Clean and structure this data into a valid JSON object following these rules:
+            1. The output MUST be a JSON object with a single key 'records', containing a list of objects.
+            2. Each object in the list MUST use these keys, exactly as written in TitleCase: {schema_columns}.
+            3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing, use null.
+            4. Numeric columns: Extract only numbers (e.g., from '$1,200.50' or '15 units'). If non-numeric/missing, use 0.
+            5. Region columns: Trim whitespace and convert to Title Case (e.g., ' south ' becomes 'South').
+            6. Other text columns: If a value is empty or missing (like 'N/A'), use null. Do not guess data.
 
-        Return ONLY the JSON object.
-        """
-        response = self.client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model=Config.LLM_MODEL,
-            temperature=0,
-            response_format={"type": "json_object"}
-        )
-        records = json.loads(response.choices[0].message.content).get("records", [])
-        return pd.DataFrame(records, columns=schema_columns)
+            INPUT DATA: {json.dumps(input_data)}
+
+            Return ONLY the JSON object.
+            """
+            try:
+                response = self.client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=Config.LLM_MODEL,
+                    temperature=0,
+                    response_format={"type": "json_object"}
+                )
+                records = json.loads(response.choices[0].message.content).get("records", [])
+                if records:
+                    cleaned_dfs.append(pd.DataFrame(records, columns=schema_columns))
+            except Exception as e:
+                st.error(f"Batch processing error: {e}")
+            
+            progress_bar.progress(min((i + BATCH_SIZE) / total_rows, 1.0))
+            
+        progress_bar.empty()
+        return pd.concat(cleaned_dfs, ignore_index=True) if cleaned_dfs else pd.DataFrame(columns=schema_columns)
 
     def generate_sql(self, user_query: str, columns: list) -> str:
         prompt = f"""
