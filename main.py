@@ -82,6 +82,7 @@ class StateManager:
         if 'raw_data' not in st.session_state: st.session_state.raw_data = None
         if 'processed_data' not in st.session_state: st.session_state.processed_data = None
         if 'current_file' not in st.session_state: st.session_state.current_file = None
+        if 'last_uploaded_file_id' not in st.session_state: st.session_state.last_uploaded_file_id = None
 
     @staticmethod
     def load_new_data(df: pd.DataFrame, source_id: str):
@@ -104,7 +105,12 @@ class UIRenderer:
         if st.sidebar.button("🧪 Load Sample Data"):
             StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
         
-        elif file and st.session_state.current_file != file.name:
+        # The original condition `st.session_state.current_file != file.name` was flawed.
+        # It would become true after loading sample data, causing the previously uploaded
+        # file to be reloaded unexpectedly. The new condition below fixes this.
+        elif file and file.file_id != st.session_state.last_uploaded_file_id:
+            # A new file has been uploaded. Store its unique ID and load the data.
+            st.session_state.last_uploaded_file_id = file.file_id
             raw_df = pd.read_excel(file, keep_default_na=False)
             StateManager.load_new_data(raw_df, file.name)
 
