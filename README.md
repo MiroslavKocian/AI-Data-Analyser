@@ -13,7 +13,7 @@ This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** 
 * **Python 3.11**
 * **Streamlit** (User Interface)
 * **SQLite** (Database)
-* **Groq / Llama 3.1** (LLM Engine)
+* **Mistral AI** (LLM Engine)
 
 ## 🚀 How to Run
 
@@ -24,9 +24,9 @@ This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** 
         ```bash
         pip install -r requirements.txt
         ```
-    *   Create a `.env` file in the root directory and add your Groq API key:
+    *   Create a `.env` file in the root directory and add your Mistral API key:
         ```env
-        GROQ_API_KEY="gsk_YourSecretKey"
+        MISTRAL_API_KEY="YourMistralApiKey"
         ```
 
 3.  **Run the application:**

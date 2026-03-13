@@ -5,11 +5,11 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from dateutil import parser
-from groq import Groq
+from openai import OpenAI
 
 # --- 1. CONFIGURATION ---
 class Config:
-    LLM_MODEL = "llama-3.1-8b-instant"
+    LLM_MODEL = "mistral-small-latest"
     DB_NAME = 'sales_intelligence.db'
     
     SAMPLE_RECORDS = [
@@ -42,7 +42,7 @@ class DataTransformer:
 
 class AIProvider:
     def __init__(self, api_key: str):
-        self.client = Groq(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, base_url="https://api.mistral.ai/v1")
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         """Uses LLM to normalize data into a strict JSON structure."""
@@ -115,7 +115,7 @@ class UIRenderer:
     @staticmethod
     def handle_sidebar_ingestion():
         st.sidebar.header("📂 Data Ingestion")
-        file = st.sidebar.file_uploader("", type=['xlsx'], label_visibility="collapsed")
+        file = st.sidebar.file_uploader("Upload Excel File", type=['xlsx'], label_visibility="collapsed")
         
         if st.sidebar.button("🧪 Load Sample Data"):
             StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
@@ -167,9 +167,9 @@ class PipelineManager:
 # --- 6. MAIN ORCHESTRATOR ---
 def initialize_application() -> AIProvider:
     load_dotenv(override=True)
-    api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
+    api_key = os.getenv("MISTRAL_API_KEY") or st.secrets.get("MISTRAL_API_KEY")
     if not api_key:
-        st.error("API Key Missing"); st.stop()
+        st.error("MISTRAL_API_KEY is missing. Please add it to your .env file."); st.stop()
     
     StateManager.initialize()
     return AIProvider(api_key)
