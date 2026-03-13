@@ -54,7 +54,11 @@ class AIProvider:
 
         for i in range(0, total_rows, BATCH_SIZE):
             chunk = df.iloc[i : i + BATCH_SIZE]
-            input_data = chunk.astype(str).replace(['N/A', 'n/a', 'nan', 'NaN'], "").to_dict(orient='records')
+            input_data = (
+                chunk.astype(str)
+                .replace(['N/A', 'n/a', 'nan', 'NaN'], "")
+                .to_dict(orient='records')
+            )
 
             prompt = f"""
             Clean and structure this data into a valid JSON object following these rules:
@@ -85,7 +89,11 @@ class AIProvider:
             progress_bar.progress(min((i + BATCH_SIZE) / total_rows, 1.0))
             
         progress_bar.empty()
-        return pd.concat(cleaned_dfs, ignore_index=True) if cleaned_dfs else pd.DataFrame(columns=schema_columns)
+        return (
+            pd.concat(cleaned_dfs, ignore_index=True)
+            if cleaned_dfs
+            else pd.DataFrame(columns=schema_columns)
+        )
 
     def generate_sql(self, user_query: str, columns: list) -> str:
         prompt = f"""
@@ -104,7 +112,11 @@ class AIProvider:
             messages=[{"role": "user", "content": prompt}],
             model=Config.LLM_MODEL
         )
-        return response.choices[0].message.content.strip().replace('```sql', '').replace('```', '')
+        return (
+            response.choices[0].message.content.strip()
+            .replace('```sql', '')
+            .replace('```', '')
+        )
 
 # --- 3. STATE MANAGEMENT ---
 class StateManager:
@@ -113,7 +125,8 @@ class StateManager:
         if 'raw_data' not in st.session_state: st.session_state.raw_data = None
         if 'processed_data' not in st.session_state: st.session_state.processed_data = None
         if 'current_file' not in st.session_state: st.session_state.current_file = None
-        if 'last_uploaded_file_id' not in st.session_state: st.session_state.last_uploaded_file_id = None
+        if 'last_uploaded_file_id' not in st.session_state:
+            st.session_state.last_uploaded_file_id = None
 
     @staticmethod
     def load_new_data(df: pd.DataFrame, source_id: str):
@@ -131,7 +144,9 @@ class UIRenderer:
     @staticmethod
     def handle_sidebar_ingestion():
         st.sidebar.header("📂 Data Ingestion")
-        file = st.sidebar.file_uploader("Upload Excel File", type=['xlsx'], label_visibility="collapsed")
+        file = st.sidebar.file_uploader(
+            "Upload Excel File", type=['xlsx'], label_visibility="collapsed"
+        )
         
         if st.sidebar.button("🧪 Load Sample Data"):
             StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
