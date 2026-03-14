@@ -5,7 +5,7 @@
 This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** enterprise environments and modern **AI-driven automation**. It replaces fragile "click-based" workflows with "thought-based" data processing.
 
 ## 🛠️ The Solution
-* **Data Normalization:** Converts "dirty" legacy Excel exports (inconsistent dates, currency strings) into clean, structured data using LLMs.
+* **Data Normalization:** Converts "dirty" legacy Excel exports (contract IDs, practices, and inconsistent booking dates) into clean, structured contract analytics using LLMs.
 * **SQL Warehouse:** Persists cleaned data into a structured **SQLite** database for permanent storage and high-speed querying.
 * **Multilingual Intelligence:** A Streamlit interface that accepts natural language queries in **Slovak, English, or French** and converts them instantly to SQL.
 

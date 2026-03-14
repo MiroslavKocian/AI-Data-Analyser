@@ -42,7 +42,7 @@ class DataTransformer:
             return None
         try:
             return parser.parse(str(value)).date()
-        except:
+        except Exception:
             return None
 
     @staticmethod
