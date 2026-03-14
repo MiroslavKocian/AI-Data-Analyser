@@ -1,43 +1,125 @@
-# 🚀 AI-Sales-Analyser
-### Transitioning from Legacy RPA to a 2026 GenAI Stack
+# 🚀 AI Data Analyser
+### From Messy Legacy Excel → Clean Structured Data → Natural Language SQL
+
+---
 
 ## 📌 Project Overview
-This project demonstrates a bridge between traditional **RPA (Blue Prism/IBM)** enterprise environments and modern **AI-driven automation**. It replaces fragile "click-based" workflows with "thought-based" data processing.
 
-## 🛠️ The Solution
-* **Data Normalization:** Converts "dirty" legacy Excel exports (contract IDs, practices, and inconsistent booking dates) into clean, structured contract analytics using LLMs.
-* **SQL Warehouse:** Persists cleaned data into a structured **SQLite** database for permanent storage and high-speed querying.
-* **Multilingual Intelligence:** A Streamlit interface that accepts natural language queries in **Slovak, English, or French** and converts them instantly to SQL.
+Enterprise data is messy. Dates in five different formats, inconsistent casing, missing values, non-numeric strings in number columns — this is the reality of real-world Excel exports from CRM and ERP systems.
+
+This project demonstrates an end-to-end AI-powered data pipeline that:
+
+1. **Ingests** any Excel file — no fixed column names required
+2. **Cleans and normalises** the data using an LLM — no brittle regex rules
+3. **Persists** the structured result to a SQLite database
+4. **Exports** the cleaned data as a CSV with one click
+5. **Answers** natural language questions by generating and executing SQL live
+
+Built as a deliberate bridge between **traditional RPA/VBA automation** (where rules break the moment a format changes) and a modern **AI-driven approach** (where the model understands intent, not just pattern).
+
+---
+
+## 🖥️ Application Walkthrough
+
+**Step 1 — Load Data**
+Upload any `.xlsx` file via the sidebar, or click **Load Sample Data** to use the built-in contract dataset.
+
+**Step 2 — Run AI Process**
+Click **Run AI Process**. The LLM cleans data in batches with a live progress bar — normalising dates, fixing casing, removing junk values — based on whatever columns your file contains.
+
+**Step 3 — Explore and Export**
+- Cleaned data table — structured and display-ready
+- **⬇️ Download Cleaned Data as CSV** — one-click export
+- **🗣️ AI SQL Analyst** — ask a question in plain English (or Slovak, or French) and get a live SQL result back
+
+---
 
 ## 💻 Tech Stack
-* **Python 3.11**
-* **Streamlit** (User Interface)
-* **SQLite** (Database)
-* **Mistral AI** (LLM Engine)
+
+| Layer | Technology |
+|---|---|
+| UI | Streamlit |
+| AI / LLM | Mistral AI (`mistral-small-latest`) |
+| Data | Pandas |
+| Database | SQLite |
+| Testing | Pytest |
+| API Client | OpenAI-compatible SDK |
+
+---
 
 ## 🚀 How to Run
 
-1.  **Clone the repository and navigate into it.**
+**1. Clone the repository**
+```bash
+git clone https://github.com/your-username/AI-Data-Analyser.git
+cd AI-Data-Analyser
+```
 
-2.  **Set up your environment:**
-    *   Install the dependencies listed in `requirements.txt`.
-        ```bash
-        pip install -r requirements.txt
-        ```
-    *   Create a `.env` file in the root directory and add your Mistral API key:
-        ```env
-        MISTRAL_API_KEY="YourMistralApiKey"
-        ```
+**2. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-3.  **Run the application:**
-    Use the launcher script to automatically run tests before starting:
-    ```bash
-    python run_app.py
-    ```
+**3. Add your API key**
+
+Create a `.env` file in the root directory:
+```env
+MISTRAL_API_KEY="your_mistral_api_key_here"
+```
+Get a free key at [console.mistral.ai](https://console.mistral.ai).
+
+**4. Launch**
+
+Use the launcher — it runs the full test suite first and only starts the app if all tests pass:
+```bash
+python run_app.py
+```
+
+Or run directly:
+```bash
+streamlit run main.py
+```
+
+---
 
 ## 🧪 Testing
 
-To run the automated test suite, simply execute:
 ```bash
 pytest
 ```
+
+The test suite covers all components with no hardcoded column names — tests work with any data shape:
+
+- `DataTransformer` — date parsing across 6+ formats, all null variants, type checks
+- `Repository` — SQLite persistence, replace behaviour, column name preservation
+- `AIProvider` — SQL markdown stripping, prompt content verification, batch count, error handling, partial batch failure recovery
+- `PipelineManager` — service call order, session state assignment, raw data forwarding
+- `StateManager` — key creation, no-overwrite on re-init, processed data reset on new load
+
+---
+
+## 🏗️ Architecture
+
+Six classes, one responsibility each:
+
+```
+Config            → centralised constants and sample data
+Repository        → SQLite persistence
+DataTransformer   → date parsing and display sanitisation
+AIProvider        → LLM calls: data cleaning and SQL generation
+StateManager      → Streamlit session state abstraction
+UIRenderer        → all Streamlit UI components
+PipelineManager   → orchestrates the cleaning pipeline
+```
+
+Tests mock at the class boundary — no real API or database calls are made during testing.
+
+---
+
+## 💡 Why This Exists
+
+After 10 years of enterprise automation at IBM using Blue Prism and IBM RPA, I built this to demonstrate that:
+
+- **LLMs replace fragile rule engines.** Traditional RPA breaks when a date format changes from `DD/MM/YYYY` to `Month DD, YYYY`. An LLM understands both.
+- **Domain knowledge + AI = better automation.** Understanding what the data means leads to better prompts and better results.
+- **Natural language is the new SQL interface.** Non-technical stakeholders can now query their own data without knowing SQL — in whichever language they think in.

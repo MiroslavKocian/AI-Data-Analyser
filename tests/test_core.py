@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 import sys
@@ -7,166 +8,373 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-# Add parent directory to path so we can import 'main'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from main import DataTransformer, Repository, Config, AIProvider, PipelineManager, StateManager
+from main_final import AIProvider, Config, DataTransformer, PipelineManager, Repository, StateManager
 
-# --- Test DataTransformer ---
-# This ensures your date cleaning logic handles messy Enterprise inputs correctly.
 
-def test_parse_date_safely_standard():
-    """Test that standard YYYY-MM-DD works."""
-    result = DataTransformer.parse_date_safely("2026-01-15")
-    assert str(result) == "2026-01-15"
+# =============================================================================
+# DataTransformer.parse_date_safely
+# =============================================================================
 
-def test_parse_date_safely_european():
-    """Test that European DD/MM/YYYY works."""
-    result = DataTransformer.parse_date_safely("15/01/2026")
-    assert str(result) == "2026-01-15"
+class TestParseDateSafely:
 
-def test_parse_date_safely_text():
-    """Test that written text dates work."""
-    result = DataTransformer.parse_date_safely("March 10, 2026")
-    assert str(result) == "2026-03-10"
+    def test_iso_format(self):
+        assert str(DataTransformer.parse_date_safely("2026-01-15")) == "2026-01-15"
 
-def test_parse_date_safely_invalid():
-    """Test that garbage input returns None instead of crashing."""
-    assert DataTransformer.parse_date_safely("Not a date") is None
-    assert DataTransformer.parse_date_safely(None) is None
-    assert DataTransformer.parse_date_safely("NaN") is None
-    assert DataTransformer.parse_date_safely("") is None
+    def test_european_slash(self):
+        assert str(DataTransformer.parse_date_safely("15/01/2026")) == "2026-01-15"
 
-def test_parse_date_safely_impossible_dates():
-    """Test that impossible calendar dates don't crash the parser."""
-    # parser.parse might raise an error or handle it, our function catches exceptions and returns None
-    assert DataTransformer.parse_date_safely("2026-02-30") is None
+    def test_written_month(self):
+        assert str(DataTransformer.parse_date_safely("March 10, 2026")) == "2026-03-10"
 
-def test_scrub_for_display():
-    """Test that we hide 'nan' and 'None' strings from the user."""
-    # Create a messy dataframe
-    df = pd.DataFrame({
-        'A': ['Hello', 'nan', 'None'],
-        'B': [1, None, float('nan')]
-    })
-    
-    # Run the scrubber
-    clean_df = DataTransformer.scrub_for_display(df)
-    
-    # Assertions
-    assert clean_df.iloc[1]['A'] == ""  # 'nan' string should become empty
-    assert clean_df.iloc[2]['A'] == ""  # 'None' string should become empty
+    def test_dot_separator(self):
+        assert str(DataTransformer.parse_date_safely("2026.04.12")) == "2026-04-12"
 
-def test_scrub_for_display_empty():
-    """Test that an empty dataframe is returned safely."""
-    df = pd.DataFrame()
-    clean_df = DataTransformer.scrub_for_display(df)
-    assert clean_df.empty
+    def test_none_returns_none(self):
+        assert DataTransformer.parse_date_safely(None) is None
 
-# --- Test Repository ---
+    def test_empty_string_returns_none(self):
+        assert DataTransformer.parse_date_safely("") is None
 
-def test_repository_save_to_sqlite():
-    """Test that data is correctly saved to a SQLite database."""
-    # Create dummy data
-    df = pd.DataFrame({'id': [1, 2], 'val': ['a', 'b']})
-    
-    # Create a temporary file name but close it immediately so SQLite can access it (Windows fix)
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
-        tmp_name = tmp.name
+    def test_nan_string_returns_none(self):
+        assert DataTransformer.parse_date_safely("NaN") is None
 
-    try:
-        # Patch the Config.DB_NAME to use our temp file instead of the real DB
-        with patch('main.Config.DB_NAME', tmp_name):
-            Repository.save_to_sqlite(df)
-            
-            # Connect to temp DB and verify data
-            with sqlite3.connect(tmp_name) as conn:
-                saved_df = pd.read_sql("SELECT * FROM sales", conn)
-                assert len(saved_df) == 2
-                assert saved_df.iloc[0]['val'] == 'a'
-    finally:
-        # Cleanup
-        if os.path.exists(tmp_name):
-            try:
-                os.remove(tmp_name)
-            except OSError:
-                pass
+    def test_null_string_returns_none(self):
+        assert DataTransformer.parse_date_safely("null") is None
 
-# --- Test AIProvider ---
+    def test_none_string_returns_none(self):
+        assert DataTransformer.parse_date_safely("none") is None
 
-@pytest.mark.parametrize("raw_response, expected", [
-    ("```sql\nSELECT * FROM sales;\n```", "SELECT * FROM sales;"),
-    ("SELECT * FROM sales WHERE Territory = 'North';", "SELECT * FROM sales WHERE Territory = 'North';"),
-    ("```SELECT 1;```", "SELECT 1;")
-])
-def test_ai_provider_generate_sql_strips_markdown(raw_response, expected):
-    """Test that the generate_sql method correctly removes SQL markdown fences."""
-    with patch('main.OpenAI') as mock_openai:
-        # Setup mock client and response
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.choices[0].message.content = raw_response
-        mock_client.chat.completions.create.return_value = mock_response
-        mock_openai.return_value = mock_client
+    def test_zero_string_returns_none(self):
+        assert DataTransformer.parse_date_safely("0") is None
 
-        # Instantiate AIProvider (it will get the mock client)
-        ai_provider = AIProvider(api_key="fake_key")
-        result = ai_provider.generate_sql("any query", ["any_column"])
+    def test_garbage_returns_none(self):
+        assert DataTransformer.parse_date_safely("Not a date at all") is None
 
-        assert result.strip() == expected.strip()
+    def test_impossible_date_returns_none(self):
+        assert DataTransformer.parse_date_safely("2026-02-30") is None
 
-def test_ai_provider_clean_data_handles_api_error():
-    """Test that clean_data_with_ai returns an empty DataFrame on API error."""
-    with patch('main.OpenAI') as mock_openai:
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.side_effect = Exception("API is down")
-        mock_openai.return_value = mock_client
-        
-        # Patch the entire st module to prevent errors from st.progress
-        with patch('main.st') as mock_st:
-            ai_provider = AIProvider(api_key="fake_key")
-            df = pd.DataFrame([{"col1": "a"}])
-            result = ai_provider.clean_data_with_ai(df)
-            
+    def test_returns_date_object_not_string(self):
+        import datetime
+        result = DataTransformer.parse_date_safely("2026-01-15")
+        assert isinstance(result, datetime.date)
+
+
+# =============================================================================
+# DataTransformer.scrub_for_display
+# =============================================================================
+
+class TestScrubForDisplay:
+
+    def test_nan_string_replaced(self):
+        df = pd.DataFrame({'col': ['hello', 'nan', 'NaN']})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[1]['col'] == ""
+        assert result.iloc[2]['col'] == ""
+
+    def test_none_string_replaced(self):
+        df = pd.DataFrame({'col': ['ok', 'None', 'null']})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[1]['col'] == ""
+        assert result.iloc[2]['col'] == ""
+
+    def test_nat_string_replaced(self):
+        df = pd.DataFrame({'col': ['2026-01-01', 'NaT']})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[1]['col'] == ""
+
+    def test_valid_values_preserved(self):
+        df = pd.DataFrame({'col': ['alpha', 'beta']})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[0]['col'] == "alpha"
+        assert result.iloc[1]['col'] == "beta"
+
+    def test_numeric_columns_become_strings(self):
+        df = pd.DataFrame({'col': [1, 2, 3]})
+        result = DataTransformer.scrub_for_display(df)
+        assert result['col'].dtype == object
+
+    def test_float_nan_replaced(self):
+        df = pd.DataFrame({'col': [1.0, float('nan'), 3.0]})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[1]['col'] == ""
+
+    def test_empty_dataframe_returns_empty(self):
+        result = DataTransformer.scrub_for_display(pd.DataFrame())
+        assert result.empty
+
+    def test_multiple_columns(self):
+        df = pd.DataFrame({'a': ['nan', 'ok'], 'b': ['None', 'val']})
+        result = DataTransformer.scrub_for_display(df)
+        assert result.iloc[0]['a'] == ""
+        assert result.iloc[0]['b'] == ""
+        assert result.iloc[1]['a'] == "ok"
+        assert result.iloc[1]['b'] == "val"
+
+
+# =============================================================================
+# Repository
+# =============================================================================
+
+class TestRepository:
+
+    def _tmp(self):
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            return f.name
+
+    def test_saves_rows(self):
+        tmp = self._tmp()
+        try:
+            df = pd.DataFrame({'col_a': [1, 2], 'col_b': ['x', 'y']})
+            with patch('main_final.Config.DB_NAME', tmp):
+                Repository.save_to_sqlite(df)
+            with sqlite3.connect(tmp) as conn:
+                saved = pd.read_sql("SELECT * FROM sales", conn)
+            assert len(saved) == 2
+            assert list(saved['col_b']) == ['x', 'y']
+        finally:
+            os.remove(tmp)
+
+    def test_replaces_on_second_save(self):
+        tmp = self._tmp()
+        try:
+            with patch('main_final.Config.DB_NAME', tmp):
+                Repository.save_to_sqlite(pd.DataFrame({'val': ['old1', 'old2']}))
+                Repository.save_to_sqlite(pd.DataFrame({'val': ['new1']}))
+            with sqlite3.connect(tmp) as conn:
+                saved = pd.read_sql("SELECT * FROM sales", conn)
+            assert len(saved) == 1
+            assert saved.iloc[0]['val'] == 'new1'
+        finally:
+            os.remove(tmp)
+
+    def test_saves_empty_dataframe(self):
+        tmp = self._tmp()
+        try:
+            with patch('main_final.Config.DB_NAME', tmp):
+                Repository.save_to_sqlite(pd.DataFrame({'col': []}))  # must not raise
+        finally:
+            os.remove(tmp)
+
+    def test_column_names_preserved(self):
+        tmp = self._tmp()
+        try:
+            df = pd.DataFrame({'First Name': ['Alice'], 'Score %': [99]})
+            with patch('main_final.Config.DB_NAME', tmp):
+                Repository.save_to_sqlite(df)
+            with sqlite3.connect(tmp) as conn:
+                saved = pd.read_sql("SELECT * FROM sales", conn)
+            assert 'First Name' in saved.columns
+            assert 'Score %' in saved.columns
+        finally:
+            os.remove(tmp)
+
+
+# =============================================================================
+# AIProvider.generate_sql
+# =============================================================================
+
+class TestGenerateSQL:
+
+    @pytest.mark.parametrize("raw_response, expected", [
+        ("```sql\nSELECT * FROM sales;\n```", "SELECT * FROM sales;"),
+        ("SELECT * FROM sales WHERE x = 'y';", "SELECT * FROM sales WHERE x = 'y';"),
+        ("```SELECT 1;```", "SELECT 1;"),
+    ])
+    def test_strips_markdown_fences(self, raw_response, expected):
+        with patch('main_final.OpenAI') as mock_openai:
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = raw_response
+            result = AIProvider(api_key="fake").generate_sql("show totals", ["col_a"])
+            assert result.strip() == expected.strip()
+
+    def test_column_list_reaches_prompt(self):
+        with patch('main_final.OpenAI') as mock_openai:
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = "SELECT 1;"
+            AIProvider(api_key="fake").generate_sql("count rows", ["Alpha", "Beta", "Gamma"])
+            prompt = mock_openai.return_value.chat.completions.create \
+                .call_args[1]['messages'][0]['content']
+            assert "Alpha" in prompt
+            assert "Beta" in prompt
+            assert "Gamma" in prompt
+
+    def test_user_query_reaches_prompt(self):
+        with patch('main_final.OpenAI') as mock_openai:
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = "SELECT 1;"
+            AIProvider(api_key="fake").generate_sql("how many contracts per region", ["col"])
+            prompt = mock_openai.return_value.chat.completions.create \
+                .call_args[1]['messages'][0]['content']
+            assert "how many contracts per region" in prompt
+
+    def test_returns_string(self):
+        with patch('main_final.OpenAI') as mock_openai:
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = "SELECT 1;"
+            result = AIProvider(api_key="fake").generate_sql("q", ["c"])
+            assert isinstance(result, str)
+
+
+# =============================================================================
+# AIProvider.clean_data_with_ai
+# =============================================================================
+
+class TestCleanDataWithAI:
+
+    def test_returns_empty_df_on_api_error(self):
+        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st') as mock_st:
+            mock_openai.return_value.chat.completions.create.side_effect = Exception("API down")
+            result = AIProvider(api_key="fake").clean_data_with_ai(pd.DataFrame([{"x": "1"}]))
             assert result.empty
-            # Check that st.error was called
             mock_st.error.assert_called_once()
 
-# --- Test Pipeline & State ---
+    def test_returns_dataframe_on_success(self):
+        fake_content = json.dumps({"records": [{"Name": "Alice", "Score": "10"}]})
+        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = fake_content
+            result = AIProvider(api_key="fake").clean_data_with_ai(
+                pd.DataFrame([{"name": "Alice", "score": "10"}])
+            )
+            assert not result.empty
+            assert "Name" in result.columns
 
-def test_pipeline_manager_calls_services_in_order():
-    """Verify the cleaning pipeline calls AI, Repository, and Transformer."""
-    with patch('main.Repository.save_to_sqlite') as mock_save, \
-         patch('main.DataTransformer.scrub_for_display') as mock_scrub, \
-         patch('main.st') as mock_st:
+    def test_batches_large_dataframe(self):
+        fake_content = json.dumps({"records": [{"Col": str(i)} for i in range(10)]})
+        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = fake_content
+            AIProvider(api_key="fake").clean_data_with_ai(
+                pd.DataFrame([{"col": str(i)} for i in range(25)])
+            )
+            assert mock_openai.return_value.chat.completions.create.call_count == 3
 
-        # Ensure session_state is a Mock that accepts assignment
-        mock_st.session_state = MagicMock()
+    def test_continues_after_one_batch_error(self):
+        good = json.dumps({"records": [{"Col": "ok"}]})
+        responses = [
+            Exception("batch 1 failed"),
+            MagicMock(**{"choices[0].message.content": good}),
+            MagicMock(**{"choices[0].message.content": good}),
+        ]
+        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st') as mock_st:
+            mock_openai.return_value.chat.completions.create.side_effect = responses
+            result = AIProvider(api_key="fake").clean_data_with_ai(
+                pd.DataFrame([{"col": str(i)} for i in range(25)])
+            )
+            mock_st.error.assert_called_once()
+            assert not result.empty
 
-        # Create a mock AI engine
-        mock_ai_engine = MagicMock()
-        # Setup the mock to return a dummy dataframe
-        mock_ai_engine.clean_data_with_ai.return_value = pd.DataFrame({'A': [1]})
-        
-        # Execute the pipeline
-        PipelineManager.execute_cleaning_pipeline(mock_ai_engine, pd.DataFrame())
+    def test_empty_records_response_gives_empty_df(self):
+        fake_content = json.dumps({"records": []})
+        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+            mock_openai.return_value.chat.completions.create \
+                .return_value.choices[0].message.content = fake_content
+            result = AIProvider(api_key="fake").clean_data_with_ai(
+                pd.DataFrame([{"col": "a"}])
+            )
+            assert result.empty
 
-        # Assert that each step was called once
-        mock_ai_engine.clean_data_with_ai.assert_called_once()
-        mock_save.assert_called_once()
-        mock_scrub.assert_called_once()
-        mock_st.success.assert_called_once_with("Analysis Ready!")
 
-def test_state_manager_load_new_data():
-    """Test that loading new data correctly updates the session state."""
-    # Patch 'main.st' instead of 'session_state' directly for better stability
-    with patch('main.st') as mock_st:
-        # Setup session_state as a MagicMock
-        mock_st.session_state = MagicMock()
-        
-        df = pd.DataFrame({'A': [1]})
-        StateManager.load_new_data(df, "test_file.xlsx")
-        
-        assert mock_st.session_state.raw_data.equals(df)
-        assert mock_st.session_state.processed_data is None
-        assert mock_st.session_state.current_file == "test_file.xlsx"
+# =============================================================================
+# PipelineManager
+# =============================================================================
+
+class TestPipelineManager:
+
+    def test_calls_all_services(self):
+        with patch('main_final.Repository.save_to_sqlite') as mock_save, \
+             patch('main_final.DataTransformer.scrub_for_display',
+                   return_value=pd.DataFrame({'x': ['clean']})), \
+             patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            mock_ai = MagicMock()
+            mock_ai.clean_data_with_ai.return_value = pd.DataFrame({'x': [1]})
+            PipelineManager.execute_cleaning_pipeline(mock_ai, pd.DataFrame())
+            mock_ai.clean_data_with_ai.assert_called_once()
+            mock_save.assert_called_once()
+            mock_st.success.assert_called_once_with("Analysis Ready!")
+
+    def test_stores_result_in_session_state(self):
+        scrubbed = pd.DataFrame({'x': ['clean']})
+        with patch('main_final.Repository.save_to_sqlite'), \
+             patch('main_final.DataTransformer.scrub_for_display', return_value=scrubbed), \
+             patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            mock_ai = MagicMock()
+            mock_ai.clean_data_with_ai.return_value = pd.DataFrame({'x': [1]})
+            PipelineManager.execute_cleaning_pipeline(mock_ai, pd.DataFrame())
+            assert mock_st.session_state.processed_data.equals(scrubbed)
+
+    def test_raw_df_passed_to_ai(self):
+        raw = pd.DataFrame({'col': ['dirty', 'data']})
+        with patch('main_final.Repository.save_to_sqlite'), \
+             patch('main_final.DataTransformer.scrub_for_display', return_value=pd.DataFrame()), \
+             patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            mock_ai = MagicMock()
+            mock_ai.clean_data_with_ai.return_value = pd.DataFrame()
+            PipelineManager.execute_cleaning_pipeline(mock_ai, raw)
+            assert mock_ai.clean_data_with_ai.call_args[0][0].equals(raw)
+
+
+# =============================================================================
+# StateManager
+# =============================================================================
+
+class TestStateManager:
+
+    def test_load_sets_raw_data(self):
+        with patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            df = pd.DataFrame({'x': [1]})
+            StateManager.load_new_data(df, "file.xlsx")
+            assert mock_st.session_state.raw_data.equals(df)
+
+    def test_load_clears_processed(self):
+        with patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            StateManager.load_new_data(pd.DataFrame({'x': [1]}), "file.xlsx")
+            assert mock_st.session_state.processed_data is None
+
+    def test_load_sets_current_file(self):
+        with patch('main_final.st') as mock_st:
+            mock_st.session_state = MagicMock()
+            StateManager.load_new_data(pd.DataFrame(), "report.xlsx")
+            assert mock_st.session_state.current_file == "report.xlsx"
+
+    def test_initialize_creates_all_keys(self):
+        class FakeState(dict):
+            def __getattr__(self, k):
+                try: return self[k]
+                except KeyError: raise AttributeError(k)
+            def __setattr__(self, k, v): self[k] = v
+
+        with patch('main_final.st') as mock_st:
+            mock_st.session_state = FakeState()
+            StateManager.initialize()
+            assert mock_st.session_state['raw_data'] is None
+            assert mock_st.session_state['processed_data'] is None
+            assert mock_st.session_state['current_file'] is None
+            assert mock_st.session_state['last_uploaded_file_id'] is None
+
+    def test_initialize_does_not_overwrite_existing(self):
+        class FakeState(dict):
+            def __getattr__(self, k):
+                try: return self[k]
+                except KeyError: raise AttributeError(k)
+            def __setattr__(self, k, v): self[k] = v
+
+        existing = pd.DataFrame({'x': [42]})
+        with patch('main_final.st') as mock_st:
+            mock_st.session_state = FakeState({
+                'raw_data': existing,
+                'processed_data': None,
+                'current_file': 'old.xlsx',
+                'last_uploaded_file_id': 'abc123',
+            })
+            StateManager.initialize()
+            assert mock_st.session_state['raw_data'].equals(existing)
+            assert mock_st.session_state['current_file'] == 'old.xlsx'
+            assert mock_st.session_state['last_uploaded_file_id'] == 'abc123'

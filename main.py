@@ -179,7 +179,14 @@ class UIRenderer:
     def handle_analytics_view(ai_engine: AIProvider):
         st.subheader("✅ Cleaned & Structured Data")
         st.dataframe(st.session_state.processed_data, use_container_width=True)
-        
+
+        st.download_button(
+            label="⬇️ Download Cleaned Data as CSV",
+            data=st.session_state.processed_data.to_csv(index=False).encode('utf-8'),
+            file_name="cleaned_data.csv",
+            mime="text/csv",
+        )
+
         st.divider()
         st.subheader("🗣️ AI SQL Analyst")
         query = st.text_input("Ask a question about your data:")
