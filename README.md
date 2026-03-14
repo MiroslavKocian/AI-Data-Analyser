@@ -25,7 +25,11 @@ Built as a deliberate bridge between **traditional RPA/VBA automation** (where r
 Upload any `.xlsx` file via the sidebar, or click **Load Sample Data** to use the built-in contract dataset.
 
 **Step 2 — Run AI Process**
-Click **Run AI Process**. The LLM cleans data in batches with a live progress bar — normalising dates, fixing casing, removing junk values — based on whatever columns your file contains.
+Click **Run AI Process**. The LLM cleans data in batches with a live progress bar. It applies exactly three transformations — nothing else is changed or guessed:
+
+- **Dates** — any date format normalised to `YYYY-MM-DD`, null if unparseable
+- **Numbers** — currency symbols and units stripped, keeping only the numeric value (e.g. `$1,200.50` → `1200.50`, `15 units` → `15`), null if missing
+- **Empty values** — `N/A`, `n/a`, `-`, blank cells → null
 
 **Step 3 — Explore and Export**
 - Cleaned data table — structured and display-ready

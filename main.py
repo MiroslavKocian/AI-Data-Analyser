@@ -56,7 +56,7 @@ class AIProvider:
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         """Uses LLM to normalize data into a strict JSON structure."""
-        schema_columns = [c.strip().title() for c in df.columns]
+        schema_columns = [c.strip() for c in df.columns]
         cleaned_dfs = []
         BATCH_SIZE = 10
         total_rows = len(df)
@@ -73,11 +73,10 @@ class AIProvider:
             prompt = f"""
             Clean and structure this data into a valid JSON object following these rules:
             1. The output MUST be a JSON object with a single key 'records', containing a list of objects.
-            2. Each object in the list MUST use these keys, exactly as written in TitleCase: {schema_columns}.
+            2. Each object in the list MUST use these exact keys, unchanged: {schema_columns}.
             3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing, use null.
-            4. Numeric columns: Extract only numbers (e.g., from '$1,200.50' or '15 units'). If non-numeric/missing, use 0.
-            5. Region columns: Trim whitespace and convert to Title Case (e.g., ' south ' becomes 'South').
-            6. Other text columns: If a value is empty or missing (like 'N/A'), use null. Do not guess data.
+            4. Numeric columns: Strip currency symbols and units, keep only the number (e.g., '$1,200.50' -> 1200.50, '15 units' -> 15). If non-numeric or missing, use null.
+            5. All other columns: If a value is empty or missing (like 'N/A', 'n/a', '-', ''), use null. Do not change, guess, or reformat the data in any other way.
 
             INPUT DATA: {json.dumps(input_data)}
 
