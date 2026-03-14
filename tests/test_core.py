@@ -2,7 +2,6 @@ import json
 import os
 import sqlite3
 import sys
-import tempfile
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -10,7 +9,7 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from main_final import AIProvider, Config, DataTransformer, PipelineManager, Repository, StateManager
+from main import AIProvider, Config, DataTransformer, PipelineManager, Repository, StateManager
 
 
 # =============================================================================
@@ -119,56 +118,40 @@ class TestScrubForDisplay:
 
 class TestRepository:
 
-    def _tmp(self):
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-            return f.name
+    def test_saves_rows(self, tmp_path):
+        tmp = str(tmp_path / "test.db")
+        df = pd.DataFrame({'col_a': [1, 2], 'col_b': ['x', 'y']})
+        with patch('main.Config.DB_NAME', tmp):
+            Repository.save_to_sqlite(df)
+        with sqlite3.connect(tmp) as conn:
+            saved = pd.read_sql("SELECT * FROM sales", conn)
+        assert len(saved) == 2
+        assert list(saved['col_b']) == ['x', 'y']
 
-    def test_saves_rows(self):
-        tmp = self._tmp()
-        try:
-            df = pd.DataFrame({'col_a': [1, 2], 'col_b': ['x', 'y']})
-            with patch('main_final.Config.DB_NAME', tmp):
-                Repository.save_to_sqlite(df)
-            with sqlite3.connect(tmp) as conn:
-                saved = pd.read_sql("SELECT * FROM sales", conn)
-            assert len(saved) == 2
-            assert list(saved['col_b']) == ['x', 'y']
-        finally:
-            os.remove(tmp)
+    def test_replaces_on_second_save(self, tmp_path):
+        tmp = str(tmp_path / "test.db")
+        with patch('main.Config.DB_NAME', tmp):
+            Repository.save_to_sqlite(pd.DataFrame({'val': ['old1', 'old2']}))
+            Repository.save_to_sqlite(pd.DataFrame({'val': ['new1']}))
+        with sqlite3.connect(tmp) as conn:
+            saved = pd.read_sql("SELECT * FROM sales", conn)
+        assert len(saved) == 1
+        assert saved.iloc[0]['val'] == 'new1'
 
-    def test_replaces_on_second_save(self):
-        tmp = self._tmp()
-        try:
-            with patch('main_final.Config.DB_NAME', tmp):
-                Repository.save_to_sqlite(pd.DataFrame({'val': ['old1', 'old2']}))
-                Repository.save_to_sqlite(pd.DataFrame({'val': ['new1']}))
-            with sqlite3.connect(tmp) as conn:
-                saved = pd.read_sql("SELECT * FROM sales", conn)
-            assert len(saved) == 1
-            assert saved.iloc[0]['val'] == 'new1'
-        finally:
-            os.remove(tmp)
+    def test_saves_empty_dataframe(self, tmp_path):
+        tmp = str(tmp_path / "test.db")
+        with patch('main.Config.DB_NAME', tmp):
+            Repository.save_to_sqlite(pd.DataFrame({'col': []}))  # must not raise
 
-    def test_saves_empty_dataframe(self):
-        tmp = self._tmp()
-        try:
-            with patch('main_final.Config.DB_NAME', tmp):
-                Repository.save_to_sqlite(pd.DataFrame({'col': []}))  # must not raise
-        finally:
-            os.remove(tmp)
-
-    def test_column_names_preserved(self):
-        tmp = self._tmp()
-        try:
-            df = pd.DataFrame({'First Name': ['Alice'], 'Score %': [99]})
-            with patch('main_final.Config.DB_NAME', tmp):
-                Repository.save_to_sqlite(df)
-            with sqlite3.connect(tmp) as conn:
-                saved = pd.read_sql("SELECT * FROM sales", conn)
-            assert 'First Name' in saved.columns
-            assert 'Score %' in saved.columns
-        finally:
-            os.remove(tmp)
+    def test_column_names_preserved(self, tmp_path):
+        tmp = str(tmp_path / "test.db")
+        df = pd.DataFrame({'First Name': ['Alice'], 'Score %': [99]})
+        with patch('main.Config.DB_NAME', tmp):
+            Repository.save_to_sqlite(df)
+        with sqlite3.connect(tmp) as conn:
+            saved = pd.read_sql("SELECT * FROM sales", conn)
+        assert 'First Name' in saved.columns
+        assert 'Score %' in saved.columns
 
 
 # =============================================================================
@@ -183,14 +166,14 @@ class TestGenerateSQL:
         ("```SELECT 1;```", "SELECT 1;"),
     ])
     def test_strips_markdown_fences(self, raw_response, expected):
-        with patch('main_final.OpenAI') as mock_openai:
+        with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = raw_response
             result = AIProvider(api_key="fake").generate_sql("show totals", ["col_a"])
             assert result.strip() == expected.strip()
 
     def test_column_list_reaches_prompt(self):
-        with patch('main_final.OpenAI') as mock_openai:
+        with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = "SELECT 1;"
             AIProvider(api_key="fake").generate_sql("count rows", ["Alpha", "Beta", "Gamma"])
@@ -201,7 +184,7 @@ class TestGenerateSQL:
             assert "Gamma" in prompt
 
     def test_user_query_reaches_prompt(self):
-        with patch('main_final.OpenAI') as mock_openai:
+        with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = "SELECT 1;"
             AIProvider(api_key="fake").generate_sql("how many contracts per region", ["col"])
@@ -210,7 +193,7 @@ class TestGenerateSQL:
             assert "how many contracts per region" in prompt
 
     def test_returns_string(self):
-        with patch('main_final.OpenAI') as mock_openai:
+        with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = "SELECT 1;"
             result = AIProvider(api_key="fake").generate_sql("q", ["c"])
@@ -224,7 +207,7 @@ class TestGenerateSQL:
 class TestCleanDataWithAI:
 
     def test_returns_empty_df_on_api_error(self):
-        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st') as mock_st:
+        with patch('main.OpenAI') as mock_openai, patch('main.st') as mock_st:
             mock_openai.return_value.chat.completions.create.side_effect = Exception("API down")
             result = AIProvider(api_key="fake").clean_data_with_ai(pd.DataFrame([{"x": "1"}]))
             assert result.empty
@@ -232,7 +215,7 @@ class TestCleanDataWithAI:
 
     def test_returns_dataframe_on_success(self):
         fake_content = json.dumps({"records": [{"Name": "Alice", "Score": "10"}]})
-        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+        with patch('main.OpenAI') as mock_openai, patch('main.st'):
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = fake_content
             result = AIProvider(api_key="fake").clean_data_with_ai(
@@ -243,7 +226,7 @@ class TestCleanDataWithAI:
 
     def test_batches_large_dataframe(self):
         fake_content = json.dumps({"records": [{"Col": str(i)} for i in range(10)]})
-        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+        with patch('main.OpenAI') as mock_openai, patch('main.st'):
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = fake_content
             AIProvider(api_key="fake").clean_data_with_ai(
@@ -253,12 +236,16 @@ class TestCleanDataWithAI:
 
     def test_continues_after_one_batch_error(self):
         good = json.dumps({"records": [{"Col": "ok"}]})
+
+        good_response = MagicMock()
+        good_response.choices[0].message.content = good
+
         responses = [
             Exception("batch 1 failed"),
-            MagicMock(**{"choices[0].message.content": good}),
-            MagicMock(**{"choices[0].message.content": good}),
+            good_response,
+            good_response,
         ]
-        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st') as mock_st:
+        with patch('main.OpenAI') as mock_openai, patch('main.st') as mock_st:
             mock_openai.return_value.chat.completions.create.side_effect = responses
             result = AIProvider(api_key="fake").clean_data_with_ai(
                 pd.DataFrame([{"col": str(i)} for i in range(25)])
@@ -268,7 +255,7 @@ class TestCleanDataWithAI:
 
     def test_empty_records_response_gives_empty_df(self):
         fake_content = json.dumps({"records": []})
-        with patch('main_final.OpenAI') as mock_openai, patch('main_final.st'):
+        with patch('main.OpenAI') as mock_openai, patch('main.st'):
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = fake_content
             result = AIProvider(api_key="fake").clean_data_with_ai(
@@ -284,10 +271,10 @@ class TestCleanDataWithAI:
 class TestPipelineManager:
 
     def test_calls_all_services(self):
-        with patch('main_final.Repository.save_to_sqlite') as mock_save, \
-             patch('main_final.DataTransformer.scrub_for_display',
+        with patch('main.Repository.save_to_sqlite') as mock_save, \
+             patch('main.DataTransformer.scrub_for_display',
                    return_value=pd.DataFrame({'x': ['clean']})), \
-             patch('main_final.st') as mock_st:
+             patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             mock_ai = MagicMock()
             mock_ai.clean_data_with_ai.return_value = pd.DataFrame({'x': [1]})
@@ -298,9 +285,9 @@ class TestPipelineManager:
 
     def test_stores_result_in_session_state(self):
         scrubbed = pd.DataFrame({'x': ['clean']})
-        with patch('main_final.Repository.save_to_sqlite'), \
-             patch('main_final.DataTransformer.scrub_for_display', return_value=scrubbed), \
-             patch('main_final.st') as mock_st:
+        with patch('main.Repository.save_to_sqlite'), \
+             patch('main.DataTransformer.scrub_for_display', return_value=scrubbed), \
+             patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             mock_ai = MagicMock()
             mock_ai.clean_data_with_ai.return_value = pd.DataFrame({'x': [1]})
@@ -309,9 +296,9 @@ class TestPipelineManager:
 
     def test_raw_df_passed_to_ai(self):
         raw = pd.DataFrame({'col': ['dirty', 'data']})
-        with patch('main_final.Repository.save_to_sqlite'), \
-             patch('main_final.DataTransformer.scrub_for_display', return_value=pd.DataFrame()), \
-             patch('main_final.st') as mock_st:
+        with patch('main.Repository.save_to_sqlite'), \
+             patch('main.DataTransformer.scrub_for_display', return_value=pd.DataFrame()), \
+             patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             mock_ai = MagicMock()
             mock_ai.clean_data_with_ai.return_value = pd.DataFrame()
@@ -326,20 +313,20 @@ class TestPipelineManager:
 class TestStateManager:
 
     def test_load_sets_raw_data(self):
-        with patch('main_final.st') as mock_st:
+        with patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             df = pd.DataFrame({'x': [1]})
             StateManager.load_new_data(df, "file.xlsx")
             assert mock_st.session_state.raw_data.equals(df)
 
     def test_load_clears_processed(self):
-        with patch('main_final.st') as mock_st:
+        with patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             StateManager.load_new_data(pd.DataFrame({'x': [1]}), "file.xlsx")
             assert mock_st.session_state.processed_data is None
 
     def test_load_sets_current_file(self):
-        with patch('main_final.st') as mock_st:
+        with patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             StateManager.load_new_data(pd.DataFrame(), "report.xlsx")
             assert mock_st.session_state.current_file == "report.xlsx"
@@ -351,7 +338,7 @@ class TestStateManager:
                 except KeyError: raise AttributeError(k)
             def __setattr__(self, k, v): self[k] = v
 
-        with patch('main_final.st') as mock_st:
+        with patch('main.st') as mock_st:
             mock_st.session_state = FakeState()
             StateManager.initialize()
             assert mock_st.session_state['raw_data'] is None
@@ -367,7 +354,7 @@ class TestStateManager:
             def __setattr__(self, k, v): self[k] = v
 
         existing = pd.DataFrame({'x': [42]})
-        with patch('main_final.st') as mock_st:
+        with patch('main.st') as mock_st:
             mock_st.session_state = FakeState({
                 'raw_data': existing,
                 'processed_data': None,
