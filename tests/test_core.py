@@ -214,7 +214,7 @@ class TestCleanDataWithAI:
             mock_st.error.assert_called_once()
 
     def test_returns_dataframe_on_success(self):
-        fake_content = json.dumps({"records": [{"Name": "Alice", "Score": "10"}]})
+        fake_content = json.dumps({"records": [{"name": "Alice", "score": "10"}]})
         with patch('main.OpenAI') as mock_openai, patch('main.st'):
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = fake_content
@@ -222,7 +222,7 @@ class TestCleanDataWithAI:
                 pd.DataFrame([{"name": "Alice", "score": "10"}])
             )
             assert not result.empty
-            assert "Name" in result.columns
+            assert "name" in result.columns
 
     def test_batches_large_dataframe(self):
         fake_content = json.dumps({"records": [{"Col": str(i)} for i in range(10)]})
