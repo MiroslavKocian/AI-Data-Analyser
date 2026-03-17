@@ -16,6 +16,7 @@ from main import (
     PipelineManager,
     Repository,
     StateManager,
+    UIRenderer,
 )
 
 
@@ -381,3 +382,37 @@ class TestStateManager:
             assert mock_st.session_state['raw_data'].equals(existing)
             assert mock_st.session_state['current_file'] == 'old.xlsx'
             assert mock_st.session_state['last_uploaded_file_id'] == 'abc123'
+
+
+# =============================================================================
+# UIRenderer
+# =============================================================================
+
+class TestUIRenderer:
+
+    def test_sample_questions_displayed_for_sample_data(self):
+        mock_ai = MagicMock()
+        with patch('main.st') as mock_st:
+            mock_st.session_state.processed_data = pd.DataFrame()
+            mock_st.session_state.current_file = "sample_data"
+
+            UIRenderer.handle_analytics_view(mock_ai)
+
+            mock_st.expander.assert_any_call(
+                "📝 Sample Questions & Answers (for this dataset)"
+            )
+
+            # Verify markdown content inside
+            args_list = [args[0] for args, _ in mock_st.markdown.call_args_list]
+            assert any("Revenue Analysis" in str(arg) for arg in args_list)
+
+    def test_sample_questions_hidden_for_user_files(self):
+        mock_ai = MagicMock()
+        with patch('main.st') as mock_st:
+            mock_st.session_state.processed_data = pd.DataFrame()
+            mock_st.session_state.current_file = "user_upload.xlsx"
+
+            UIRenderer.handle_analytics_view(mock_ai)
+
+            for args, _ in mock_st.expander.call_args_list:
+                assert "Sample Questions" not in args[0]
