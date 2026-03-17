@@ -14,11 +14,41 @@ class Config:
     DB_NAME = 'sales_intelligence.db'
     
     SAMPLE_RECORDS = [
-        {"Date": "2026-01-15", "Region": "North", "Product_Category": "Electronics", "Units_Sold": "10", "Unit_Price": "500"},
-        {"Date": "15/02/2026", "Region": "South", "Product_Category": "Furniture", "Units_Sold": "5 pieces", "Unit_Price": "1200 USD"},
-        {"Date": "March 10, 2026", "Region": "West", "Product_Category": "N/A", "Units_Sold": "15", "Unit_Price": "300"},
-        {"Date": "2026.04.12", "Region": "East", "Product_Category": "", "Units_Sold": "20", "Unit_Price": "150"},
-        {"Date": "", "Region": "North", "Product_Category": "Appliances", "Units_Sold": "8", "Unit_Price": "0"}
+        {
+            "Date": "2026-01-15",
+            "Region": "North",
+            "Product_Category": "Electronics",
+            "Units_Sold": "10",
+            "Unit_Price": "500",
+        },
+        {
+            "Date": "15/02/2026",
+            "Region": "South",
+            "Product_Category": "Furniture",
+            "Units_Sold": "5 pieces",
+            "Unit_Price": "1200 USD",
+        },
+        {
+            "Date": "March 10, 2026",
+            "Region": "West",
+            "Product_Category": "N/A",
+            "Units_Sold": "15",
+            "Unit_Price": "300",
+        },
+        {
+            "Date": "2026.04.12",
+            "Region": "East",
+            "Product_Category": "",
+            "Units_Sold": "20",
+            "Unit_Price": "150",
+        },
+        {
+            "Date": "",
+            "Region": "North",
+            "Product_Category": "Appliances",
+            "Units_Sold": "8",
+            "Unit_Price": "0",
+        },
     ]
 
 # --- 2. CORE SERVICES ---
@@ -32,7 +62,9 @@ class Repository:
 class DataTransformer:
     @staticmethod
     def parse_date_safely(value):
-        """Attempts to parse a date string into a date object, returning None on failure."""
+        """
+        Attempts to parse a date string into a date object, returning None on failure.
+        """
         if not value or str(value).lower() in ['nan', 'none', 'null', '', '0']:
             return None
         try:
@@ -67,11 +99,18 @@ class AIProvider:
 
             prompt = f"""
             Clean and structure this data into a valid JSON object following these rules:
-            1. The output MUST be a JSON object with a single key 'records', containing a list of objects.
-            2. Each object in the list MUST use these exact keys, unchanged: {schema_columns}.
-            3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing, use null.
-            4. Numeric columns: Strip currency symbols and units, keep only the number (e.g., '$1,200.50' -> 1200.50, '15 units' -> 15). If non-numeric or missing, use null.
-            5. All other columns: If a value is empty or missing (like 'N/A', 'n/a', '-', ''), use null. Do not change, guess, or reformat the data in any other way.
+            1. The output MUST be a JSON object with a single key 'records', containing
+               a list of objects.
+            2. Each object in the list MUST use these exact keys, unchanged:
+               {schema_columns}.
+            3. Date columns: Parse dates and format as YYYY-MM-DD. If invalid/missing,
+               use null.
+            4. Numeric columns: Strip currency symbols and units, keep only the number
+               (e.g., '$1,200.50' -> 1200.50, '15 units' -> 15). If non-numeric or
+               missing, use null.
+            5. All other columns: If a value is empty or missing (like 'N/A', 'n/a',
+               '-', ''), use null. Do not change, guess, or reformat the data in any
+               other way.
 
             INPUT DATA: {json.dumps(input_data)}
 
@@ -84,7 +123,9 @@ class AIProvider:
                     temperature=0,
                     response_format={"type": "json_object"}
                 )
-                records = json.loads(response.choices[0].message.content).get("records", [])
+                records = json.loads(
+                    response.choices[0].message.content
+                ).get("records", [])
                 if records:
                     cleaned_dfs.append(pd.DataFrame(records, columns=schema_columns))
             except Exception as e:
@@ -107,9 +148,13 @@ class AIProvider:
         Goal: Generate a valid SQLite SELECT query to answer: "{user_query}"
         
         Guidelines:
-        1. For questions about trends or changes over time, SELECT the Date and the relevant metric column, and ORDER BY Date. Do NOT attempt to calculate row-by-row differences unless explicitly requested.
-        2. Column names with spaces or special characters (like %, $) MUST be enclosed in double quotes (e.g., "Unit Price", "Voda %").
-        3. If a JOIN is strictly necessary, EVERY column in the SELECT clause MUST be prefixed with its table alias to avoid ambiguity.
+        1. For questions about trends or changes over time, SELECT the Date and the
+           relevant metric column, and ORDER BY Date. Do NOT attempt to calculate
+           row-by-row differences unless explicitly requested.
+        2. Column names with spaces or special characters (like %, $) MUST be enclosed
+           in double quotes (e.g., "Unit Price", "Voda %").
+        3. If a JOIN is strictly necessary, EVERY column in the SELECT clause MUST be
+           prefixed with its table alias to avoid ambiguity.
         4. Return ONLY the raw SQL string (no markdown, no explanations).
         """
         response = self.client.chat.completions.create(
@@ -153,7 +198,9 @@ class UIRenderer:
         )
         
         if st.sidebar.button("🧪 Load Sample Data"):
-            StateManager.load_new_data(pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data")
+            StateManager.load_new_data(
+                pd.DataFrame(Config.SAMPLE_RECORDS), "sample_data"
+            )
         
         elif file and file.file_id != st.session_state.last_uploaded_file_id:
             st.session_state.last_uploaded_file_id = file.file_id
@@ -167,7 +214,9 @@ class UIRenderer:
 
         if st.sidebar.button("🪄 Run AI Process"):
             with st.spinner("Processing..."):
-                PipelineManager.execute_cleaning_pipeline(ai_engine, st.session_state.raw_data)
+                PipelineManager.execute_cleaning_pipeline(
+                    ai_engine, st.session_state.raw_data
+                )
 
     @staticmethod
     def handle_analytics_view(ai_engine: AIProvider):
