@@ -14,16 +14,11 @@ class Config:
     DB_NAME = 'sales_intelligence.db'
     
     SAMPLE_RECORDS = [
-        {"contract_id": "C-2024-0076", "project_name": "Proj_5494", "customer_number": "CUST0001", "customer_name": "Customer_001", "region": "APAC", "country": "Korea", "practice": "Data & AI", "contract_type": "Fixed Price", "status": "Active", "booking_date": "2023-10-22"},
-        {"contract_id": "C-2024-0182", "project_name": "Proj_5615", "customer_number": "CUST0001", "customer_name": "Customer_001", "region": "APAC", "country": "Singapore", "practice": "SAP", "contract_type": "Time & Materials", "status": "Active", "booking_date": "2023-11-11"},
-        {"contract_id": "C-2025-0054", "project_name": "Proj_9766", "customer_number": "CUST0001", "customer_name": "Customer_001", "region": "APAC", "country": "Korea", "practice": "SAP", "contract_type": "Time & Materials", "status": "Active", "booking_date": "2025-06-15"},
-        {"contract_id": "C-2026-0186", "project_name": "Proj_7563", "customer_number": "CUST0001", "customer_name": "Customer_001", "region": "APAC", "country": "China", "practice": "Cloud", "contract_type": "Fixed Price", "status": "Closed Won", "booking_date": "2026-05-28"},
-        {"contract_id": "C-2025-0006", "project_name": "Proj_8343", "customer_number": "CUST0003", "customer_name": "Customer_003", "region": "APAC", "country": "Korea", "practice": "Data & AI", "contract_type": "Time & Materials", "status": "Active", "booking_date": "2025-05-22"},
-        {"contract_id": "C-2026-0097", "project_name": "Proj_5780", "customer_number": "CUST0003", "customer_name": "Customer_003", "region": "APAC", "country": "India", "practice": "App Modernization", "contract_type": "Fixed Price", "status": "Closed Won", "booking_date": "2026-02-12"},
-        {"contract_id": "C-2025-0031", "project_name": "Proj_5363", "customer_number": "CUST0004", "customer_name": "Customer_004", "region": "APAC", "country": "Korea", "practice": "Data & AI", "contract_type": "Time & Materials", "status": "Closed Won", "booking_date": "2025-02-02"},
-        {"contract_id": "C-2025-0175", "project_name": "Proj_6154", "customer_number": "CUST0004", "customer_name": "Customer_004", "region": "APAC", "country": "Singapore", "practice": "Cloud", "contract_type": "Time & Materials", "status": "On Hold", "booking_date": "2025-05-16"},
-        {"contract_id": "C-2025-0150", "project_name": "Proj_1541", "customer_number": "CUST0004", "customer_name": "Customer_004", "region": "APAC", "country": "Korea", "practice": "Security", "contract_type": "Fixed Price", "status": "On Hold", "booking_date": "2025-03-02"},
-        {"contract_id": "C-2026-0078", "project_name": "Proj_2796", "customer_number": "CUST0004", "customer_name": "Customer_004", "region": "APAC", "country": "Australia", "practice": "Data & AI", "contract_type": "Managed Services", "status": "Active", "booking_date": "2026-05-29"}
+        {"Date": "2026-01-15", "Region": "North", "Product_Category": "Electronics", "Units_Sold": "10", "Unit_Price": "500"},
+        {"Date": "15/02/2026", "Region": "South", "Product_Category": "Furniture", "Units_Sold": "5 pieces", "Unit_Price": "1200 USD"},
+        {"Date": "March 10, 2026", "Region": "West", "Product_Category": "N/A", "Units_Sold": "15", "Unit_Price": "300"},
+        {"Date": "2026.04.12", "Region": "East", "Product_Category": "", "Units_Sold": "20", "Unit_Price": "150"},
+        {"Date": "", "Region": "North", "Product_Category": "Appliances", "Units_Sold": "8", "Unit_Price": "0"}
     ]
 
 # --- 2. CORE SERVICES ---
