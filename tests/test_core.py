@@ -7,8 +7,6 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
-
 from main import (
     AIProvider,
     Config,
