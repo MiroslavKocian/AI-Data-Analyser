@@ -9,7 +9,14 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from main import AIProvider, Config, DataTransformer, PipelineManager, Repository, StateManager
+from main import (
+    AIProvider,
+    Config,
+    DataTransformer,
+    PipelineManager,
+    Repository,
+    StateManager,
+)
 
 
 # =============================================================================
@@ -176,7 +183,9 @@ class TestGenerateSQL:
         with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = "SELECT 1;"
-            AIProvider(api_key="fake").generate_sql("count rows", ["Alpha", "Beta", "Gamma"])
+            AIProvider(api_key="fake").generate_sql(
+                "count rows", ["Alpha", "Beta", "Gamma"]
+            )
             prompt = mock_openai.return_value.chat.completions.create \
                 .call_args[1]['messages'][0]['content']
             assert "Alpha" in prompt
@@ -187,7 +196,9 @@ class TestGenerateSQL:
         with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
                 .return_value.choices[0].message.content = "SELECT 1;"
-            AIProvider(api_key="fake").generate_sql("how many contracts per region", ["col"])
+            AIProvider(api_key="fake").generate_sql(
+                "how many contracts per region", ["col"]
+            )
             prompt = mock_openai.return_value.chat.completions.create \
                 .call_args[1]['messages'][0]['content']
             assert "how many contracts per region" in prompt
@@ -208,8 +219,12 @@ class TestCleanDataWithAI:
 
     def test_returns_empty_df_on_api_error(self):
         with patch('main.OpenAI') as mock_openai, patch('main.st') as mock_st:
-            mock_openai.return_value.chat.completions.create.side_effect = Exception("API down")
-            result = AIProvider(api_key="fake").clean_data_with_ai(pd.DataFrame([{"x": "1"}]))
+            mock_openai.return_value.chat.completions.create.side_effect = Exception(
+                "API down"
+            )
+            result = AIProvider(api_key="fake").clean_data_with_ai(
+                pd.DataFrame([{"x": "1"}])
+            )
             assert result.empty
             mock_st.error.assert_called_once()
 
@@ -297,7 +312,8 @@ class TestPipelineManager:
     def test_raw_df_passed_to_ai(self):
         raw = pd.DataFrame({'col': ['dirty', 'data']})
         with patch('main.Repository.save_to_sqlite'), \
-             patch('main.DataTransformer.scrub_for_display', return_value=pd.DataFrame()), \
+             patch('main.DataTransformer.scrub_for_display',
+                   return_value=pd.DataFrame()), \
              patch('main.st') as mock_st:
             mock_st.session_state = MagicMock()
             mock_ai = MagicMock()

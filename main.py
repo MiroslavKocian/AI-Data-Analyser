@@ -98,7 +98,8 @@ class AIProvider:
             )
 
             prompt = f"""
-            Clean and structure this data into a valid JSON object following these rules:
+            Clean and structure this data into a valid JSON object following these 
+            rules:
             1. The output MUST be a JSON object with a single key 'records', containing
                a list of objects.
             2. Each object in the list MUST use these exact keys, unchanged:
@@ -171,9 +172,12 @@ class AIProvider:
 class StateManager:
     @staticmethod
     def initialize():
-        if 'raw_data' not in st.session_state: st.session_state.raw_data = None
-        if 'processed_data' not in st.session_state: st.session_state.processed_data = None
-        if 'current_file' not in st.session_state: st.session_state.current_file = None
+        if 'raw_data' not in st.session_state:
+            st.session_state.raw_data = None
+        if 'processed_data' not in st.session_state:
+            st.session_state.processed_data = None
+        if 'current_file' not in st.session_state:
+            st.session_state.current_file = None
         if 'last_uploaded_file_id' not in st.session_state:
             st.session_state.last_uploaded_file_id = None
 
