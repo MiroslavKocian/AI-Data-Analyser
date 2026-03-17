@@ -234,6 +234,24 @@ class UIRenderer:
         st.subheader("🗣️ AI SQL Analyst")
         query = st.text_input("Ask a question about your data:")
         
+        if st.session_state.current_file == "sample_data":
+            with st.expander("📝 Sample Questions & Answers (for this dataset)"):
+                st.markdown(
+                    """
+                    **1. Revenue Analysis**
+                    - ❓ *Question:* "What is the total revenue?"
+                    - 💡 *Answer:* 18,500 (Calculated as sum of Units * Price)
+
+                    **2. Regional Performance**
+                    - ❓ *Question:* "Which region sold the most units?"
+                    - 💡 *Answer:* East (20 units sold)
+
+                    **3. Category Search**
+                    - ❓ *Question:* "Show me all Electronics sales"
+                    - 💡 *Answer:* Returns the transaction from 2026-01-15
+                    """
+                )
+
         if query:
             db_columns = st.session_state.processed_data.columns.tolist()
             sql_code = ai_engine.generate_sql(query, db_columns)
