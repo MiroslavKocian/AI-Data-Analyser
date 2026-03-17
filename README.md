@@ -122,7 +122,7 @@ Tests mock at the class boundary — no real API or database calls are made duri
 
 ## 💡 Why This Exists
 
-After 10 years of enterprise automation at IBM using Blue Prism and IBM RPA, I built this to demonstrate that:
+After 10 years of enterprise automation using Blue Prism and IBM RPA, I built this to demonstrate that:
 
 - **LLMs replace fragile rule engines.** Traditional RPA breaks when a date format changes from `DD/MM/YYYY` to `Month DD, YYYY`. An LLM understands both.
 - **Domain knowledge + AI = better automation.** Understanding what the data means leads to better prompts and better results.
