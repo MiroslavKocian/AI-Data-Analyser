@@ -22,7 +22,7 @@ Built as a deliberate bridge between **traditional RPA/VBA automation** (where r
 ## 🖥️ Application Walkthrough
 
 **Step 1 — Load Data**
-Upload any `.xlsx` file via the sidebar, or click **Load Sample Data** to use the built-in contract dataset.
+Upload any `.xlsx` file via **Browse files**, or click **Load Sample Data** to use the built-in contract dataset.
 
 **Step 2 — Run AI Process**
 Click **Run AI Process**. The LLM cleans data in batches with a live progress bar. It applies exactly three transformations — nothing else is changed or guessed:
