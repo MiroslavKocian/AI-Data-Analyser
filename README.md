@@ -73,7 +73,9 @@ MISTRAL_API_KEY="your_mistral_api_key_here"
 Get a free key at [console.mistral.ai](https://console.mistral.ai).
 
 Create a folder .streamlit in the root directory, create a file secrets.toml inside
+```secrets.toml
 MISTRAL_API_KEY="your_mistral_api_key_here"
+```
 
 **4. Launch**
 
