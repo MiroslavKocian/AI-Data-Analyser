@@ -93,7 +93,7 @@ streamlit run main.py
 ## 🧪 Testing
 
 ```bash
-pytest
+python -m pytest
 ```
 
 The test suite covers all components with no hardcoded column names — tests work with any data shape:
