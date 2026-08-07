@@ -1,3 +1,18 @@
+"""
+Unit tests for main.py.
+
+Strategy:
+- Streamlit (`st`) and the Mistral/OpenAI client are patched out wherever
+  main.py touches them, so these tests exercise the app's actual business
+  logic (parsing, cleaning, SQL generation, state transitions) without
+  needing a running Streamlit session or real network/API access.
+- pytest's built-in `tmp_path` fixture is used for the Repository tests so
+  each test writes to its own throwaway SQLite file instead of the real
+  sales_intelligence.db.
+- Tests are grouped into one class per method/component under test. Each
+  class is meant to read top-to-bottom as living documentation of that
+  component's expected behaviour and edge cases.
+"""
 import json
 import os
 import sqlite3
@@ -7,6 +22,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+# Import the classes under test directly (rather than `import main`) so
+# each one is available unqualified throughout the tests below.
 from main import (
     AIProvider,
     Config,
@@ -22,6 +39,10 @@ from main import (
 # DataTransformer.parse_date_safely
 # =============================================================================
 
+# Covers the date formats the AI cleaning prompt is expected to normalize
+# (ISO, European slash, written month, dot separator), plus every
+# "looks empty" string value parse_date_safely should treat as missing
+# rather than trying to parse.
 class TestParseDateSafely:
 
     def test_iso_format(self):
@@ -57,9 +78,15 @@ class TestParseDateSafely:
     def test_garbage_returns_none(self):
         assert DataTransformer.parse_date_safely("Not a date at all") is None
 
+    # Feb 30 doesn't exist in any calendar - dateutil should raise, and
+    # that should be treated as "missing", not silently rounded to a
+    # nearby valid date.
     def test_impossible_date_returns_none(self):
         assert DataTransformer.parse_date_safely("2026-02-30") is None
 
+    # Guards against a regression where the result is accidentally left
+    # as a full datetime (parser.parse(...) without .date()) instead of
+    # a plain date object.
     def test_returns_date_object_not_string(self):
         import datetime
         result = DataTransformer.parse_date_safely("2026-01-15")
@@ -70,6 +97,11 @@ class TestParseDateSafely:
 # DataTransformer.scrub_for_display
 # =============================================================================
 
+# scrub_for_display controls exactly what the user sees in the "Cleaned &
+# Structured Data" table, so these tests check that every "empty-looking"
+# value pandas can produce (string 'nan', float NaN, 'NaT', 'None', 'null')
+# is normalized to a plain empty string, while real values pass through
+# untouched.
 class TestScrubForDisplay:
 
     def test_nan_string_replaced(self):
@@ -122,6 +154,9 @@ class TestScrubForDisplay:
 # Repository
 # =============================================================================
 
+# Uses pytest's tmp_path fixture + patch('main.Config.DB_NAME', ...) so
+# these tests hit a real (throwaway) SQLite file and verify actual
+# persistence behaviour end-to-end, rather than mocking sqlite3 itself.
 class TestRepository:
 
     def test_saves_rows(self, tmp_path):
@@ -134,6 +169,8 @@ class TestRepository:
         assert len(saved) == 2
         assert list(saved['col_b']) == ['x', 'y']
 
+    # Confirms if_exists='replace' is actually wired through: a second
+    # save must fully overwrite the first table, not append to it.
     def test_replaces_on_second_save(self, tmp_path):
         tmp = str(tmp_path / "test.db")
         with patch('main.Config.DB_NAME', tmp):
@@ -149,6 +186,9 @@ class TestRepository:
         with patch('main.Config.DB_NAME', tmp):
             Repository.save_to_sqlite(pd.DataFrame({'col': []}))  # must not raise
 
+    # Sales data column names often contain spaces/%, which need to
+    # survive the round-trip through SQLite untouched for the AI SQL
+    # Analyst's generated queries to actually work.
     def test_column_names_preserved(self, tmp_path):
         tmp = str(tmp_path / "test.db")
         df = pd.DataFrame({'First Name': ['Alice'], 'Score %': [99]})
@@ -164,8 +204,13 @@ class TestRepository:
 # AIProvider.generate_sql
 # =============================================================================
 
+# generate_sql's LLM call is fully mocked here (main.OpenAI), so these
+# tests check *prompt construction* and *response post-processing*
+# (markdown-fence stripping) rather than real SQL correctness.
 class TestGenerateSQL:
 
+    # Models inconsistently wrap SQL in ``` / ```sql fences despite being
+    # told not to in the prompt - verify the common variants are stripped.
     @pytest.mark.parametrize("raw_response, expected", [
         ("```sql\nSELECT * FROM sales;\n```", "SELECT * FROM sales;"),
         ("SELECT * FROM sales WHERE x = 'y';", "SELECT * FROM sales WHERE x = 'y';"),
@@ -178,6 +223,8 @@ class TestGenerateSQL:
             result = AIProvider(api_key="fake").generate_sql("show totals", ["col_a"])
             assert result.strip() == expected.strip()
 
+    # The LLM can only reference real columns if they're actually present
+    # in the prompt text it receives.
     def test_column_list_reaches_prompt(self):
         with patch('main.OpenAI') as mock_openai:
             mock_openai.return_value.chat.completions.create \
@@ -214,8 +261,12 @@ class TestGenerateSQL:
 # AIProvider.clean_data_with_ai
 # =============================================================================
 
+# Exercises clean_data_with_ai's batching, error-handling and JSON-parsing
+# behaviour with both the OpenAI client and Streamlit (`st`) mocked out.
 class TestCleanDataWithAI:
 
+    # A total API failure should degrade gracefully to an empty
+    # DataFrame rather than raising and crashing the whole app.
     def test_returns_empty_df_on_api_error(self):
         with patch('main.OpenAI') as mock_openai, patch('main.st') as mock_st:
             mock_openai.return_value.chat.completions.create.side_effect = Exception(
@@ -238,6 +289,8 @@ class TestCleanDataWithAI:
             assert not result.empty
             assert "name" in result.columns
 
+    # 25 rows at BATCH_SIZE=10 should produce exactly 3 API calls
+    # (10 + 10 + 5) - pins down the batching math in clean_data_with_ai.
     def test_batches_large_dataframe(self):
         fake_content = json.dumps({"records": [{"Col": str(i)} for i in range(10)]})
         with patch('main.OpenAI') as mock_openai, patch('main.st'):
@@ -248,6 +301,8 @@ class TestCleanDataWithAI:
             )
             assert mock_openai.return_value.chat.completions.create.call_count == 3
 
+    # One failed batch (e.g. a transient API error) shouldn't cause the
+    # other, successful batches to be lost.
     def test_continues_after_one_batch_error(self):
         good = json.dumps({"records": [{"Col": "ok"}]})
 
@@ -267,6 +322,8 @@ class TestCleanDataWithAI:
             mock_st.error.assert_called_once()
             assert not result.empty
 
+    # A well-formed but empty "records" list (e.g. nothing matched) is a
+    # valid response and should not be treated as an error.
     def test_empty_records_response_gives_empty_df(self):
         fake_content = json.dumps({"records": []})
         with patch('main.OpenAI') as mock_openai, patch('main.st'):
@@ -282,6 +339,9 @@ class TestCleanDataWithAI:
 # PipelineManager
 # =============================================================================
 
+# Confirms execute_cleaning_pipeline wires the three core services
+# together in the right order and with the right data, using a
+# MagicMock AI engine so no real LLM call is made.
 class TestPipelineManager:
 
     def test_calls_all_services(self):
@@ -325,6 +385,10 @@ class TestPipelineManager:
 # StateManager
 # =============================================================================
 
+# session_state behaves like a namespace object in real Streamlit;
+# FakeState (used below in the initialize() tests) is a minimal
+# stand-in supporting both dict-style and attribute-style access, so
+# these tests can run without a live Streamlit runtime.
 class TestStateManager:
 
     def test_load_sets_raw_data(self):
@@ -361,6 +425,9 @@ class TestStateManager:
             assert mock_st.session_state['current_file'] is None
             assert mock_st.session_state['last_uploaded_file_id'] is None
 
+    # initialize() runs on every Streamlit rerun, so it must be
+    # idempotent and never reset state the user has already built up
+    # mid-session.
     def test_initialize_does_not_overwrite_existing(self):
         class FakeState(dict):
             def __getattr__(self, k):
@@ -386,6 +453,9 @@ class TestStateManager:
 # UIRenderer
 # =============================================================================
 
+# Checks that the "sample Q&A" expander only appears for the built-in
+# demo dataset, and never for the user's own uploaded files (where the
+# canned answers wouldn't apply).
 class TestUIRenderer:
 
     def test_sample_questions_displayed_for_sample_data(self):
