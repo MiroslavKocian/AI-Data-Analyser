@@ -6,6 +6,7 @@ select = ["E501"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
+pythonpath = ["."]
 addopts = """
 --cov=config --cov=repository --cov=data_transformer --cov=sql_runner
 --cov=ai_provider --cov=state_manager --cov=pipeline_manager
