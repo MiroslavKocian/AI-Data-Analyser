@@ -2,7 +2,7 @@
 Unit tests for main.py.
 
 Strategy:
-- Streamlit (`st`) and the Mistral/OpenAI client are patched out wherever
+- Streamlit (`st`) and the Groq/OpenAI client are patched out wherever
   main.py touches them, so these tests exercise the app's actual business
   logic (parsing, cleaning, SQL generation, state transitions) without
   needing a running Streamlit session or real network/API access.

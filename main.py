@@ -3,7 +3,7 @@ AI Sales Analyser
 ------------------
 A Streamlit app that ingests messy sales spreadsheets (inconsistent date
 formats, currency symbols mixed into numbers, blank/"N/A" values, etc.),
-uses an LLM (Mistral, via the OpenAI-compatible client) to clean and
+uses an LLM (Groq, via the OpenAI-compatible client) to clean and
 normalize the data into a strict schema, persists the result to SQLite,
 and lets the user query it with plain-English questions that the LLM
 translates into SQL.
@@ -29,7 +29,9 @@ from openai import OpenAI
 # Central place for constants and demo data, so magic values and sample
 # records aren't scattered throughout the rest of the file.
 class Config:
-    LLM_MODEL = "mistral-small-latest"
+    # Groq free tier: see https://console.groq.com/docs/rate-limits
+    LLM_BASE_URL = "https://api.groq.com/openai/v1"
+    LLM_MODEL = "llama-3.3-70b-versatile"
     DB_NAME = 'sales_intelligence.db'
     
     # Deliberately messy/inconsistent sample rows (mixed date formats,
@@ -120,9 +122,8 @@ class AIProvider:
     # Wraps every LLM call (data cleaning + natural-language-to-SQL)
     # behind a single client instance.
     def __init__(self, api_key: str):
-        # Mistral exposes an OpenAI-compatible API, so the standard
-        # OpenAI SDK can be pointed at Mistral's endpoint via base_url.
-        self.client = OpenAI(api_key=api_key, base_url="https://api.mistral.ai/v1")
+        # Groq exposes an OpenAI-compatible API (see Config.LLM_BASE_URL).
+        self.client = OpenAI(api_key=api_key, base_url=Config.LLM_BASE_URL)
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         """Uses LLM to normalize data into a strict JSON structure."""
@@ -387,11 +388,14 @@ def initialize_application() -> AIProvider:
     load_dotenv(override=True)
     # Support both local development (.env) and deployment on Streamlit
     # Community Cloud (st.secrets).
-    api_key = os.getenv("MISTRAL_API_KEY") or st.secrets.get("MISTRAL_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
     if not api_key:
         # Fail fast with a clear message rather than letting a later API
         # call raise a confusing authentication error deep in the pipeline.
-        st.error("MISTRAL_API_KEY is missing. Please add it to your .env file.")
+        st.error(
+            "GROQ_API_KEY is missing. Add it to `.env` or "
+            "`.streamlit/secrets.toml` (see README).",
+        )
         st.stop()
     
     StateManager.initialize()

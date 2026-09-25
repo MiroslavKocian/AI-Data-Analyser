@@ -43,7 +43,7 @@ Click **Run AI Process**. The LLM cleans data in batches with a live progress ba
 | Layer | Technology |
 |---|---|
 | UI | Streamlit |
-| AI / LLM | Mistral AI (`mistral-small-latest`) |
+| AI / LLM | Groq (`llama-3.3-70b-versatile`) |
 | Data | Pandas |
 | Database | SQLite |
 | Testing | Pytest |
@@ -67,13 +67,13 @@ pip install -r requirements.txt
 
 Create a `.env` file in the root directory:
 ```env
-MISTRAL_API_KEY="your_mistral_api_key_here"
+GROQ_API_KEY="your_groq_api_key_here"
 ```
-Get a free key at [console.mistral.ai](https://console.mistral.ai).
+Get a free key at [console.groq.com](https://console.groq.com).
 
-Create a folder .streamlit in the root directory, create a file secrets.toml inside
-```secrets.toml
-MISTRAL_API_KEY="your_mistral_api_key_here"
+Create a folder `.streamlit` in the root directory, create a file `secrets.toml` inside:
+```toml
+GROQ_API_KEY = "your_groq_api_key_here"
 ```
 
 **4. Launch**
