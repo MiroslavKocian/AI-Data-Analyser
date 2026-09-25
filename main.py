@@ -31,7 +31,7 @@ from openai import OpenAI
 class Config:
     # Groq free tier: see https://console.groq.com/docs/rate-limits
     LLM_BASE_URL = "https://api.groq.com/openai/v1"
-    LLM_MODEL = "llama-3.3-70b-versatile"
+    LLM_MODEL = "openai/gpt-oss-20b"
     DB_NAME = 'sales_intelligence.db'
     
     # Deliberately messy/inconsistent sample rows (mixed date formats,

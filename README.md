@@ -43,7 +43,7 @@ Click **Run AI Process**. The LLM cleans data in batches with a live progress ba
 | Layer | Technology |
 |---|---|
 | UI | Streamlit |
-| AI / LLM | Groq (`llama-3.3-70b-versatile`) |
+| AI / LLM | Groq (`openai/gpt-oss-20b`) |
 | Data | Pandas |
 | Database | SQLite |
 | Testing | Pytest |
