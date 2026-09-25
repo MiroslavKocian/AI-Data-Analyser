@@ -22,8 +22,8 @@ from sample_loader import load_sample_excel
 from sql_runner import run_select_query
 from startup import (
     bootstrap_application,
-    require_mistral_api_key,
-    resolve_mistral_api_key,
+    require_groq_api_key,
+    resolve_groq_api_key,
 )
 from state_manager import initialize, load_new_data
 from ui_renderer import SAMPLE_SOURCE_ID, UIRenderer
@@ -141,11 +141,11 @@ class TestStartup:
             patch("startup.load_dotenv"),
             patch.dict(
                 "os.environ",
-                {"MISTRAL_API_KEY": "from-env"},
+                {"GROQ_API_KEY": "from-env"},
                 clear=False,
             ),
         ):
-            assert resolve_mistral_api_key() == "from-env"
+            assert resolve_groq_api_key() == "from-env"
 
     def test_resolve_from_secrets(self):
         with (
@@ -158,33 +158,33 @@ class TestStartup:
         ):
             with patch("startup.st") as mock_st:
                 mock_st.secrets.get.return_value = "from-secrets"
-                assert resolve_mistral_api_key() == "from-secrets"
+                assert resolve_groq_api_key() == "from-secrets"
 
     def test_resolve_returns_none_when_missing(self):
         with patch("startup.load_dotenv"), patch.dict("os.environ", {}, clear=True):
             with patch("startup.st") as mock_st:
                 mock_st.secrets.get.side_effect = KeyError("missing")
-                assert resolve_mistral_api_key() is None
+                assert resolve_groq_api_key() is None
 
     def test_require_returns_key_when_present(self):
-        with patch("startup.resolve_mistral_api_key", return_value="secret-key"):
-            assert require_mistral_api_key() == "secret-key"
+        with patch("startup.resolve_groq_api_key", return_value="secret-key"):
+            assert require_groq_api_key() == "secret-key"
 
     def test_require_stops_when_missing(self):
         with (
-            patch("startup.resolve_mistral_api_key", return_value=None),
+            patch("startup.resolve_groq_api_key", return_value=None),
             patch(
                 "startup.st",
             ) as mock_st,
         ):
             mock_st.stop.side_effect = SystemExit
             with pytest.raises(SystemExit):
-                require_mistral_api_key()
+                require_groq_api_key()
             mock_st.error.assert_called_once()
 
     def test_bootstrap_returns_provider(self):
         with (
-            patch("startup.require_mistral_api_key", return_value="key"),
+            patch("startup.require_groq_api_key", return_value="key"),
             patch(
                 "startup.initialize",
             ),

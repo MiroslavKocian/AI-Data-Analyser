@@ -1,4 +1,4 @@
-"""Mistral LLM calls for data cleaning and natural-language SQL."""
+"""Groq LLM calls for data cleaning and natural-language SQL."""
 
 import json
 import logging
@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 from openai import OpenAI
 
-from config import BATCH_SIZE, LLM_MODEL, MISTRAL_BASE_URL
+from config import BATCH_SIZE, LLM_BASE_URL, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,10 @@ def strip_sql_markdown(raw_sql: str) -> str:
 
 
 class AIProvider:
-    """OpenAI-compatible client pointed at Mistral."""
+    """OpenAI-compatible client pointed at Groq."""
 
     def __init__(self, api_key: str):
-        self.client = OpenAI(api_key=api_key, base_url=MISTRAL_BASE_URL)
+        self.client = OpenAI(api_key=api_key, base_url=LLM_BASE_URL)
 
     def clean_data_with_ai(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalize messy rows via the LLM in fixed-size batches."""

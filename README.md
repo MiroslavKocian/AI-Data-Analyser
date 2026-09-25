@@ -2,13 +2,13 @@
 
 [![Tests](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml/badge.svg)](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml)
 
-Upload messy Excel sales exports, let **Mistral** clean and structure the rows, store them in **SQLite**, export CSV, and ask questions in natural language that become **SQL** queries.
+Upload messy Excel sales exports, let **Groq** clean and structure the rows, store them in **SQLite**, export CSV, and ask questions in natural language that become **SQL** queries.
 
 **Repository:** https://github.com/MiroslavKocian/AI-Data-Analyser
 
 **Live app (Streamlit Cloud):** https://ai-sales-analyser.streamlit.app/
 
-The hosted app reads `MISTRAL_API_KEY` from the Streamlit Cloud **Settings → Secrets**
+The hosted app reads `GROQ_API_KEY` from the Streamlit Cloud **Settings → Secrets**
 dashboard (not from this git repo). For local runs, use `.env` or
 `.streamlit/secrets.toml` below.
 
@@ -17,7 +17,7 @@ dashboard (not from this git repo). For local runs, use `.env` or
 | Layer | Technology |
 |--------|------------|
 | UI | Streamlit |
-| AI / LLM | Mistral AI (`mistral-small-latest`) |
+| AI / LLM | Groq (`openai/gpt-oss-20b`) |
 | Data | Pandas |
 | Database | SQLite |
 | Testing | Pytest |
@@ -28,7 +28,7 @@ dashboard (not from this git repo). For local runs, use `.env` or
 
 - Python 3.11 — https://www.python.org/downloads/
 - Git
-- A free **Mistral API key** — https://console.mistral.ai
+- A free **Groq API key** — https://console.groq.com
 - Docker Desktop — only for the Docker section — https://www.docker.com/products/docker-desktop/
 
 ## API key (two supported options)
@@ -38,7 +38,7 @@ Use **either** local `.env` **or** Streamlit secrets (for example Streamlit Comm
 **Option A — `.env` in the project root**
 
 ```env
-MISTRAL_API_KEY="your_mistral_api_key_here"
+GROQ_API_KEY="your_groq_api_key_here"
 ```
 
 **Option B — `.streamlit/secrets.toml`**
@@ -46,7 +46,7 @@ MISTRAL_API_KEY="your_mistral_api_key_here"
 Create the folder `.streamlit` in the project root and add:
 
 ```toml
-MISTRAL_API_KEY = "your_mistral_api_key_here"
+GROQ_API_KEY = "your_groq_api_key_here"
 ```
 
 Never commit real keys. Both paths are listed in `.gitignore`.
@@ -112,7 +112,7 @@ Sample file on disk (for manual upload tests):
 
 ## Docker
 
-Create a `.env` file with `MISTRAL_API_KEY` in the project root, then:
+Create a `.env` file with `GROQ_API_KEY` in the project root, then:
 
 ```sh
 docker compose up --build
@@ -144,7 +144,7 @@ AI-Data-Analyser/
 ├── app.py               Page flow
 ├── startup.py           API key resolution
 ├── config.py            Constants
-├── ai_provider.py       Mistral calls
+├── ai_provider.py       Groq LLM calls
 ├── repository.py        SQLite writes
 ├── data_transformer.py  Date helpers and display scrubbing
 ├── sql_runner.py        Execute generated SELECT queries
