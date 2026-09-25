@@ -25,20 +25,23 @@ class TestRunStartupQuality:
             assert quality_gate.run_startup_quality() == 2
 
     def test_returns_pytest_exit_code(self):
-        with (
-            patch("quality_gate.subprocess.run") as mock_run,
-            patch("quality_gate.pytest.main", return_value=0) as mock_pytest,
-        ):
-            mock_run.return_value = MagicMock(returncode=0)
+        with patch("quality_gate.subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0),
+                MagicMock(returncode=0),
+                MagicMock(returncode=0),
+            ]
             assert quality_gate.run_startup_quality() == 0
-            mock_pytest.assert_called_once_with(["-q"])
+            pytest_cmd = mock_run.call_args_list[2][0][0]
+            assert pytest_cmd[-3:-1] == ["-m", "pytest"]
 
     def test_propagates_pytest_failure(self):
-        with (
-            patch("quality_gate.subprocess.run") as mock_run,
-            patch("quality_gate.pytest.main", return_value=1),
-        ):
-            mock_run.return_value = MagicMock(returncode=0)
+        with patch("quality_gate.subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0),
+                MagicMock(returncode=0),
+                MagicMock(returncode=1),
+            ]
             assert quality_gate.run_startup_quality() == 1
 
 
