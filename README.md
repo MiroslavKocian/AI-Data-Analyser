@@ -6,9 +6,11 @@ Upload messy Excel sales exports, let **Groq** clean and structure the rows, sto
 them in **SQLite**, export CSV, and ask questions in natural language that become
 **SQL** queries.
 
-**Repository:** https://github.com/MiroslavKocian/AI-Data-Analyser
+**GitHub:** https://github.com/MiroslavKocian/AI-Data-Analyser
 
-**Live app (Streamlit Cloud):** https://ai-sales-analyser.streamlit.app/
+**Live demo:** https://ai-sales-analyser.streamlit.app/  
+(Streamlit app name is `ai-sales-analyser`; the product title in the UI is
+**AI Data Analyser**.)
 
 ---
 
@@ -26,28 +28,21 @@ them in **SQLite**, export CSV, and ask questions in natural language that becom
 
 ---
 
-## What runs when you start the app
+## Quality checks (automatic)
 
-Before the Streamlit UI loads, `main.py` runs a **startup quality gate** (once per
-server process):
+You **do not** need a separate “run tests” step for normal use.
 
-1. `ruff check .`
-2. `ruff format --check .`
-3. `pytest` with **100 %** coverage on application modules (`pyproject.toml`)
+Whenever the app **starts** (`python run_app.py`, `python -m streamlit run main.py`,
+Docker, or Streamlit Cloud after deploy/restart), `main.py` runs **once per server
+process**:
 
-If any step fails, the app **does not start**. The same three steps also run on
-**every push** in GitHub Actions (`.github/workflows/test.yml`).
+`ruff check` → `ruff format --check` → `pytest` (100 % coverage)
 
-| How you start | Quality gate | Streamlit UI |
-|---------------|--------------|--------------|
-| `python run_app.py` | yes (via `main.py`) | yes |
-| `python -m streamlit run main.py` | yes (via `main.py`) | yes |
-| `docker compose up` | yes on container start | yes (port 8501) |
-| Streamlit Cloud deploy | yes on first load / restart | yes (live URL above) |
-| `python -m pytest` only | runs tests only | no |
+If anything fails, the UI does not open. The [![Tests](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml/badge.svg)](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml)
+workflow runs the same checks on every **git push**.
 
-Use **`python -m streamlit`** and **`python -m pytest`** on Windows so the project
-`.venv` is used (not a global `pytest` / `streamlit` on `PATH`).
+On Windows, prefer **`python -m streamlit`** (not bare `streamlit`) so the active
+`.venv` is used.
 
 ---
 
@@ -123,18 +118,19 @@ Follow [API key (two supported options)](#api-key-two-supported-options).
 
 ### 4. Start the app
 
-Either command runs the startup quality gate, then opens the UI at
-http://127.0.0.1:8501
+Ruff and pytest run automatically, then the UI opens at http://127.0.0.1:8501
 
 ```sh
 python run_app.py
 ```
 
+Equivalent:
+
 ```sh
 python -m streamlit run main.py
 ```
 
-First start can take a few seconds while Ruff and pytest run.
+The first start after a code change can take a few extra seconds.
 
 ### 5. Demo in the browser
 
@@ -158,36 +154,13 @@ Create `.env` in the project root with `GROQ_API_KEY`, then:
 docker compose up --build
 ```
 
-Open http://127.0.0.1:8501
-
-The container runs the same startup quality gate when Streamlit loads `main.py`.
+Open http://127.0.0.1:8501 (quality checks run on container start, same as locally).
 
 Stop with **Ctrl+C** (press **Enter** on Windows if the prompt hangs), then:
 
 ```sh
 docker compose down
 ```
-
----
-
-## Tests and lint (without starting Streamlit)
-
-Run these from the project root with the venv activated:
-
-```sh
-python -m ruff check .
-python -m ruff format --check .
-python -m pytest
-```
-
-Auto-format Python:
-
-```sh
-python -m ruff format .
-```
-
-CI runs `ruff check`, `ruff format --check`, and `pytest` on every push and pull
-request.
 
 ---
 
