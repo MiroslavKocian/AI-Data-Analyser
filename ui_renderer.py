@@ -5,6 +5,7 @@ import streamlit as st
 
 from ai_provider import AIProvider
 from pipeline_manager import execute_cleaning_pipeline
+from data_transformer import scrub_for_display
 from sample_loader import load_sample_excel
 from sql_runner import run_select_query
 from state_manager import load_new_data
@@ -44,7 +45,12 @@ class UIRenderer:
     @staticmethod
     def handle_raw_data_view(ai_engine: AIProvider) -> None:
         st.subheader("Raw input")
-        st.dataframe(st.session_state.raw_data, use_container_width=True)
+        # All columns as strings so Streamlit/Arrow does not choke on values
+        # like "5 pieces" in numeric-looking columns.
+        st.dataframe(
+            scrub_for_display(st.session_state.raw_data),
+            use_container_width=True,
+        )
 
         if st.sidebar.button("Run AI process"):
             with st.spinner("Processing..."):
