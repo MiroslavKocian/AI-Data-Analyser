@@ -86,17 +86,19 @@ Follow [API key (two supported options)](#api-key-two-supported-options) above.
 
 ### 4. Start the app
 
-Runs tests first; Streamlit starts only if tests pass:
+**Every** start path runs **`ruff check`**, **`ruff format --check`**, and
+**`pytest`** (100 % coverage) once per server process, then loads the UI:
 
 ```sh
 python run_app.py
 ```
 
-Or start Streamlit directly:
-
 ```sh
-streamlit run main.py
+python -m streamlit run main.py
 ```
+
+Same checks also run in **Docker** and on **Streamlit Cloud** on first load after
+deploy (or server restart). GitHub Actions runs them on every push as well.
 
 Open http://127.0.0.1:8501 (Streamlit default port).
 

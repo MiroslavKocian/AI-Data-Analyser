@@ -11,6 +11,7 @@ addopts = """
 --cov=config --cov=repository --cov=data_transformer --cov=sql_runner
 --cov=ai_provider --cov=state_manager --cov=pipeline_manager
 --cov=sample_loader --cov=startup --cov=ui_renderer --cov=app
+--cov=quality_gate --cov=run_app --cov=main
 --cov-report=term-missing --cov-fail-under=100
 """
 testpaths = ["tests"]
