@@ -1,133 +1,174 @@
-# 🚀 AI Data Analyser
-### From Messy Legacy Excel → Clean Structured Data → Natural Language SQL
+# AI Data Analyser
 
----
+[![Tests](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml/badge.svg)](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml)
 
-## 📌 Project Overview
+Upload messy Excel sales exports, let **Mistral** clean and structure the rows, store them in **SQLite**, export CSV, and ask questions in natural language that become **SQL** queries.
 
-Enterprise data is messy. Dates in five different formats, inconsistent casing, missing values, non-numeric strings in number columns — this is the reality of real-world Excel exports from CRM and ERP systems.
+**Repository:** https://github.com/MiroslavKocian/AI-Data-Analyser
 
-This project demonstrates an end-to-end AI-powered data pipeline that:
+**Live app (Streamlit Cloud):** https://ai-sales-analyser.streamlit.app/
 
-1. **Ingests** any Excel file — no fixed column names required
-2. **Cleans and normalises** the data using an LLM — no brittle regex rules
-3. **Persists** the structured result to a SQLite database
-4. **Exports** the cleaned data as a CSV with one click
-5. **Answers** natural language questions by generating and executing SQL live
+The hosted app reads `MISTRAL_API_KEY` from the Streamlit Cloud **Settings → Secrets**
+dashboard (not from this git repo). For local runs, use `.env` or
+`.streamlit/secrets.toml` below.
 
-Built as a deliberate bridge between **traditional RPA/VBA automation** (where rules break the moment a format changes) and a modern **AI-driven approach** (where the model understands intent, not just pattern).
-
----
-
-## 🖥️ Application Walkthrough
-
-**Step 1 — Load Data**
-Upload any `.xlsx` file via **Browse files**, or click **Load Sample Data** to use the built-in contract dataset.
-
-**Step 2 — Run AI Process**
-Click **Run AI Process**. The LLM cleans data in batches with a live progress bar. It applies exactly three transformations — nothing else is changed or guessed:
-
-- **Dates** — any date format normalised to `YYYY-MM-DD`, null if unparseable
-- **Numbers** — currency symbols and units stripped, keeping only the numeric value (e.g. `$1,200.50` → `1200.50`, `15 units` → `15`), null if missing
-- **Empty values** — `N/A`, `n/a`, `-`, blank cells → null
-
-**Step 3 — Explore and Export**
-- Cleaned data table — structured and display-ready
-- **⬇️ Download Cleaned Data as CSV** — one-click export
-- **🗣️ AI SQL Analyst** — ask a question in plain English (or Slovak, or French) and get a live SQL result back
-
----
-
-## 💻 Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|---|---|
+|--------|------------|
 | UI | Streamlit |
-| AI / LLM | Groq (`openai/gpt-oss-20b`) |
+| AI / LLM | Mistral AI (`mistral-small-latest`) |
 | Data | Pandas |
 | Database | SQLite |
 | Testing | Pytest |
 | API Client | OpenAI-compatible SDK |
+| Quality | Ruff, GitHub Actions, Docker |
 
----
+## Requirements
 
-## 🚀 How to Run
+- Python 3.11 — https://www.python.org/downloads/
+- Git
+- A free **Mistral API key** — https://console.mistral.ai
+- Docker Desktop — only for the Docker section — https://www.docker.com/products/docker-desktop/
 
-**1. Clone the repository**
-```bash
-git clone https://github.com/your-username/AI-Data-Analyser.git
+## API key (two supported options)
+
+Use **either** local `.env` **or** Streamlit secrets (for example Streamlit Community Cloud).
+
+**Option A — `.env` in the project root**
+
+```env
+MISTRAL_API_KEY="your_mistral_api_key_here"
+```
+
+**Option B — `.streamlit/secrets.toml`**
+
+Create the folder `.streamlit` in the project root and add:
+
+```toml
+MISTRAL_API_KEY = "your_mistral_api_key_here"
+```
+
+Never commit real keys. Both paths are listed in `.gitignore`.
+
+## Run locally
+
+### 1. Download the project
+
+```sh
+git clone https://github.com/MiroslavKocian/AI-Data-Analyser.git
 cd AI-Data-Analyser
 ```
 
-**2. Install dependencies**
-```bash
+Run the following steps inside this folder (the **project root**).
+
+### 2. Install dependencies
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
-**3. Add your API key**
 
-Create a `.env` file in the root directory:
-```env
-GROQ_API_KEY="your_groq_api_key_here"
-```
-Get a free key at [console.groq.com](https://console.groq.com).
+macOS / Linux:
 
-Create a folder `.streamlit` in the root directory, create a file `secrets.toml` inside:
-```toml
-GROQ_API_KEY = "your_groq_api_key_here"
-```
-
-**4. Launch**
-
-Use the launcher — it runs the full test suite first and only starts the app if all tests pass:
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Add your API key
+
+Follow [API key (two supported options)](#api-key-two-supported-options) above.
+
+### 4. Start the app
+
+Runs tests first; Streamlit starts only if tests pass:
+
+```sh
 python run_app.py
 ```
 
-Or run directly:
-```bash
+Or start Streamlit directly:
+
+```sh
 streamlit run main.py
 ```
 
----
+Open http://127.0.0.1:8501 (Streamlit default port).
 
-## 🧪 Testing
+### 5. Demo flow
 
-```bash
-python -m pytest
+1. Click **Load sample data**, or upload your own `.xlsx` file.
+2. Review the raw table, then click **Run AI process** in the sidebar.
+3. Download CSV or ask a question in **AI SQL analyst**.
+
+Sample file on disk (for manual upload tests):
+
+`examples/messy_sales_example.xlsx`
+
+## Docker
+
+Create a `.env` file with `MISTRAL_API_KEY` in the project root, then:
+
+```sh
+docker compose up --build
 ```
 
-The test suite covers all components with no hardcoded column names — tests work with any data shape:
+Open http://127.0.0.1:8501 in your browser.
 
-- `DataTransformer` — date parsing across 6+ formats, all null variants, type checks
-- `Repository` — SQLite persistence, replace behaviour, column name preservation
-- `AIProvider` — SQL markdown stripping, prompt content verification, batch count, error handling, partial batch failure recovery
-- `PipelineManager` — service call order, session state assignment, raw data forwarding
-- `StateManager` — key creation, no-overwrite on re-init, processed data reset on new load
+Stop with **Ctrl+C**, then:
 
----
-
-## 🏗️ Architecture
-
-Six classes, one responsibility each:
-
-```
-Config            → centralised constants and sample data
-Repository        → SQLite persistence
-DataTransformer   → date parsing and display sanitisation
-AIProvider        → LLM calls: data cleaning and SQL generation
-StateManager      → Streamlit session state abstraction
-UIRenderer        → all Streamlit UI components
-PipelineManager   → orchestrates the cleaning pipeline
+```sh
+docker compose down
 ```
 
-Tests mock at the class boundary — no real API or database calls are made during testing.
+## Tests and lint
 
----
+```sh
+pytest
+ruff check .
+ruff format --check .
+```
 
-## 💡 Why This Exists
+GitHub Actions runs the same steps on every push.
 
-After 10 years of enterprise automation using Blue Prism and IBM RPA, I built this to demonstrate that:
+## Project layout
 
-- **LLMs replace fragile rule engines.** Traditional RPA breaks when a date format changes from `DD/MM/YYYY` to `Month DD, YYYY`. An LLM understands both.
-- **Domain knowledge + AI = better automation.** Understanding what the data means leads to better prompts and better results.
-- **Natural language is the new SQL interface.** Non-technical stakeholders can now query their own data without knowing SQL — in whichever language they think in.
+```text
+AI-Data-Analyser/
+├── main.py              Streamlit entry (streamlit run main.py)
+├── app.py               Page flow
+├── startup.py           API key resolution
+├── config.py            Constants
+├── ai_provider.py       Mistral calls
+├── repository.py        SQLite writes
+├── data_transformer.py  Date helpers and display scrubbing
+├── sql_runner.py        Execute generated SELECT queries
+├── pipeline_manager.py  Cleaning pipeline
+├── state_manager.py     Session state
+├── ui_renderer.py       Streamlit widgets
+├── sample_loader.py     Built-in Excel sample
+├── run_app.py           pytest then Streamlit
+├── examples/
+│   └── messy_sales_example.xlsx
+├── tests/
+├── Dockerfile
+├── compose.yaml
+├── requirements.txt
+├── pyproject.toml
+└── AGENTS.md
+```
+
+Runtime file (not in git): `sales_intelligence.db` in the project root.
+
+## Security note
+
+The **AI SQL analyst** runs model-generated SQL against your local SQLite file. This is a **portfolio demo**, not a hardened production service. In production you would restrict queries to read-only `SELECT` statements and validate SQL before execution.
+
+## License
+
+Portfolio and interview use; no `LICENSE` file unless one is added later.
