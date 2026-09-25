@@ -103,7 +103,11 @@ class TestMainStartupGuard:
         import main as main_module
 
         with (
-            patch.object(main_module, "_should_run_startup_quality", return_value=False),
+            patch.object(
+                main_module,
+                "_should_run_startup_quality",
+                return_value=False,
+            ),
             patch("quality_gate.run_startup_quality") as mock_gate,
         ):
             main_module.run_import_time_quality_gate()
