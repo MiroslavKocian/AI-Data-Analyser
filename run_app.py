@@ -1,4 +1,4 @@
-"""Start Streamlit (quality checks run inside main.py before the app loads)."""
+"""Start Streamlit (`python run_app.py`)."""
 
 import subprocess
 import sys

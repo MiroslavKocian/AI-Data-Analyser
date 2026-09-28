@@ -28,21 +28,26 @@ them in **SQLite**, export CSV, and ask questions in natural language that becom
 
 ---
 
-## Quality checks (automatic)
+## Tests
 
-You **do not** need a separate “run tests” step for normal use.
+With the virtual environment active:
 
-Whenever the app **starts** (`python run_app.py`, `python -m streamlit run main.py`,
-Docker, or Streamlit Cloud after deploy/restart), `main.py` runs **once per server
-process**:
+```sh
+pytest
+ruff check .
+ruff format --check .
+```
 
-`ruff check` → `ruff format --check` → `pytest` (100 % coverage)
+`pytest` runs all tests and requires 100 % code coverage. `ruff` checks code style.
 
-If anything fails, the UI does not open. The [![Tests](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml/badge.svg)](https://github.com/MiroslavKocian/AI-Data-Analyser/actions/workflows/test.yml)
-workflow runs the same checks on every **git push**.
+GitHub runs the same three commands automatically after every push (file
+`.github/workflows/test.yml`). The green **Tests** badge at the top of this page
+shows the latest result.
+
+Optional: run all three in one step with `python quality_gate.py`.
 
 On Windows, prefer **`python -m streamlit`** (not bare `streamlit`) so the active
-`.venv` is used.
+`.venv` is used when starting the app.
 
 ---
 
@@ -118,7 +123,7 @@ Follow [API key (two supported options)](#api-key-two-supported-options).
 
 ### 4. Start the app
 
-Ruff and pytest run automatically, then the UI opens at http://127.0.0.1:8501
+The UI opens at http://127.0.0.1:8501
 
 ```sh
 python run_app.py
@@ -129,8 +134,6 @@ Equivalent:
 ```sh
 python -m streamlit run main.py
 ```
-
-The first start after a code change can take a few extra seconds.
 
 ### 5. Demo in the browser
 
@@ -154,7 +157,7 @@ Create `.env` in the project root with `GROQ_API_KEY`, then:
 docker compose up --build
 ```
 
-Open http://127.0.0.1:8501 (quality checks run on container start, same as locally).
+Open http://127.0.0.1:8501
 
 Stop with **Ctrl+C** (press **Enter** on Windows if the prompt hangs), then:
 
@@ -168,9 +171,9 @@ docker compose down
 
 ```text
 AI-Data-Analyser/
-├── main.py               Streamlit entry; startup quality gate
+├── main.py               Streamlit entry
 ├── run_app.py            Launches: python -m streamlit run main.py
-├── quality_gate.py       Ruff + pytest before UI loads
+├── quality_gate.py       Optional: ruff + pytest (same as CI)
 ├── app.py                Page flow
 ├── startup.py            GROQ_API_KEY from .env or secrets
 ├── config.py             Paths, model name, batch size

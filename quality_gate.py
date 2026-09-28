@@ -1,15 +1,12 @@
-"""Run Ruff and pytest before starting Streamlit."""
+"""Run Ruff and pytest locally (same steps as GitHub Actions)."""
 
 import subprocess
 import sys
 
 
-def run_startup_quality() -> int:
+def run_quality_checks() -> int:
     """
     Run the same checks as GitHub Actions (Ruff + pytest with coverage).
-
-    Uses a subprocess for pytest so coverage is not skewed when this runs
-    from main.py before Streamlit starts (for example in Docker).
 
     Returns a process exit code (0 means all checks passed).
     """
@@ -23,3 +20,7 @@ def run_startup_quality() -> int:
         if result.returncode != 0:
             return result.returncode
     return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(run_quality_checks())
