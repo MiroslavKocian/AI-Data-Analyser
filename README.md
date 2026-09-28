@@ -167,6 +167,9 @@ flowchart TD
 | `config.py` | Paths, model name, batch size, DB table name |
 | `quality_gate.py` | Optional local runner: Ruff + pytest (same as CI) |
 
+For a longer walkthrough (request flow, key functions per module, and design notes),
+see [docs/architecture.md](docs/architecture.md).
+
 Files created while the app runs (not stored in Git): `sales_intelligence.db` in the project root (or inside the container when using Docker).
 
 ## Security note
@@ -211,6 +214,8 @@ AI-Data-Analyser/
 ├── quality_gate.py
 ├── examples/
 │   └── messy_sales_example.xlsx
+├── docs/
+│   └── architecture.md
 ├── tests/
 ├── .github/workflows/test.yml
 ├── Dockerfile
