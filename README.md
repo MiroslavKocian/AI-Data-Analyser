@@ -238,6 +238,21 @@ Invalid SQL shows a clear **Streamlit error** in the UI; it is never executed. T
 remains a **portfolio demo** — production would add stronger parsing, allow-lists, and
 query limits.
 
+## Development and quality
+
+| Topic | Where it lives |
+|--------|----------------|
+| Application code | Python package `ai_data_analyser/` (Streamlit UI, Groq, SQLite) |
+| Runtime install | `pip install -r requirements.txt` |
+| Dev / CI install | `pip install -r requirements-dev.txt` (adds pytest, pytest-cov, Ruff) |
+| Lint rules | `pyproject.toml` — Ruff `E`, `F`, `I`, `B`, `UP`, line length 88 |
+| Tests on app start | **No** — run `pytest` or `python quality_gate.py` yourself; GitHub Actions on every push |
+| SQL analyst safety | `ai_data_analyser/sql_runner.py` — validated read-only `SELECT` only ([Security note](#security-note)) |
+| Deep dive | [docs/architecture.md](docs/architecture.md) |
+
+Starting the app (`python run_app.py`) only launches Streamlit. Press **Ctrl+C** to stop.
+On Windows, Streamlit may print harmless asyncio/thread messages while shutting down.
+
 ## Tests
 
 With the virtual environment active:
@@ -248,7 +263,8 @@ ruff check .
 ruff format --check .
 ```
 
-`pytest` runs all tests and requires 100% code coverage. `ruff` checks code style.
+`pytest` runs all tests and requires 100% code coverage. Ruff enforces style and imports
+(`E`, `F`, `I`, `B`, `UP` in `pyproject.toml`).
 
 GitHub runs the same three commands automatically after every push (file `.github/workflows/test.yml`). The green **Tests** badge at the top of this page shows the latest result.
 
@@ -304,6 +320,7 @@ AI-Data-Analyser/
 | **Run AI process** fails or times out | Check the Groq key, quotas at [console.groq.com](https://console.groq.com), and try a smaller upload or the sample file. |
 | Upload shows an error | Confirm the file is `.xlsx` and readable; try [Excel file rules](#excel-file-rules) or the sample workbook. |
 | Docker starts but the UI is empty / errors | Ensure `.env` with `GROQ_API_KEY` exists in the project root before `docker compose up --build`. |
+| Messy log after **Ctrl+C** on Windows | Normal Streamlit shutdown noise; the app has stopped. Use `python run_app.py` again to restart. |
 
 ## License
 

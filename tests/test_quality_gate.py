@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import quality_gate
 import run_app
 
@@ -44,10 +46,19 @@ class TestRunQualityChecks:
 class TestRunApp:
     def test_starts_streamlit_module(self):
         with patch("run_app.subprocess.run") as mock_run:
-            run_app.main()
+            mock_run.return_value = MagicMock(returncode=0)
+            with pytest.raises(SystemExit) as exc_info:
+                run_app.main()
+            assert exc_info.value.code == 0
             mock_run.assert_called_once()
             command = mock_run.call_args[0][0]
             assert command[-2:] == ["run", "main.py"]
+
+    def test_keyboard_interrupt_exits_cleanly(self):
+        with patch("run_app.subprocess.run", side_effect=KeyboardInterrupt):
+            with pytest.raises(SystemExit) as exc_info:
+                run_app.main()
+            assert exc_info.value.code == 0
 
 
 class TestMainEntry:
