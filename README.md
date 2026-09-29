@@ -94,9 +94,20 @@ On Windows, prefer `python -m streamlit` (not bare `streamlit`) so the active `.
 ### 5. Use the app
 
 1. Open [http://127.0.0.1:8501](http://127.0.0.1:8501) in your browser.
+
+   ![AI Data Analyser home at http://127.0.0.1:8501](docs/images/01-app-home.jpg)
+
 2. In the sidebar, click **Load sample data** (uses `examples/messy_sales_example.xlsx`), **or** upload your own `.xlsx` file.
+
+   ![Raw input after loading sample data](docs/images/02-raw-input.jpg)
+
 3. Review the **Raw input** table, then click **Run AI process** in the sidebar.
+
+   ![Raw and cleaned tables after Run AI process](docs/images/03-cleaned-data.jpg)
+
 4. When cleaning finishes, download **CSV**, or type a question under **AI SQL analyst** and run the generated query.
+
+   ![AI SQL analyst with generated query and result](docs/images/04-sql-analyst.jpg)
 
 The sample file path on disk:
 
@@ -215,7 +226,12 @@ AI-Data-Analyser/
 ├── examples/
 │   └── messy_sales_example.xlsx
 ├── docs/
-│   └── architecture.md
+│   ├── architecture.md
+│   └── images/
+│       ├── 01-app-home.jpg
+│       ├── 02-raw-input.jpg
+│       ├── 03-cleaned-data.jpg
+│       └── 04-sql-analyst.jpg
 ├── tests/
 ├── .github/workflows/test.yml
 ├── Dockerfile
