@@ -113,7 +113,7 @@ The sample file path on disk:
 
 `examples/messy_sales_example.xlsx`
 
-Each new upload or sample load replaces the working dataset in the UI session. The SQLite file on disk is updated when AI processing completes.
+Each new upload or sample load replaces the working dataset in the UI session. The SQLite file on disk is updated when **Run AI process** finishes.
 
 ## Run with Docker
 
@@ -142,6 +142,33 @@ The database file lives inside the container, so after `docker compose down` sto
 
 If upload or parsing fails, fix the file or try the sample workbook first.
 
+## What **Run AI process** does
+
+Clicking the sidebar button sends your **Raw input** table to **Groq** in batches
+(`BATCH_SIZE` in `config.py`, currently **10 rows** per API call). The model must
+answer with JSON; the app keeps the **same column names** as your Excel headers,
+merges all batches, writes the result to SQLite, and shows **Cleaned data**.
+
+The cleaning instructions (from `build_cleaning_prompt` in `ai_provider.py`) are:
+
+1. Return a JSON object with a single key `records`: a list of row objects.
+2. Every row must use the **exact column keys** from the upload (no renames).
+3. **Date-like columns** — parse to `YYYY-MM-DD`; use JSON `null` when the value
+   is invalid or missing.
+4. **Numeric columns** — remove currency symbols and units, keep the number only
+   (for example `1200 USD` → `1200`, `5 pieces` → `5`); use `null` when not numeric
+   or missing.
+5. **All other columns** — treat empty sentinels (`N/A`, `n/a`, `-`, blank) as
+   `null`; **do not** guess, invent, or reformat values beyond that.
+
+Before each batch is sent, cells like `N/A` / `nan` are normalized to empty strings
+so the model sees the same messiness you see in **Raw input**. Temperature is **0**
+and the API uses **JSON object** mode so the reply is machine-parseable.
+
+The **AI SQL analyst** (step 4) is a separate Groq call: natural language →
+`SELECT` for table `sales`. Prompt rules are listed in
+[docs/architecture.md](docs/architecture.md#llm-sql-analyst-rules).
+
 ## How it works
 
 ```mermaid
@@ -157,7 +184,7 @@ flowchart TD
 ```
 
 1. Excel is loaded into Streamlit session state (sample file or upload).
-2. **Run AI process** sends batches of rows to Groq and merges structured records.
+2. **Run AI process** sends batches of rows to Groq using the rules above.
 3. Cleaned data is saved to `sales_intelligence.db` and shown in the UI.
 4. The SQL analyst asks Groq for a `SELECT`, runs it locally, and displays rows.
 
@@ -250,7 +277,7 @@ AI-Data-Analyser/
 | Browser says the page cannot be reached | The app is not running. Start it with `python run_app.py` and keep the terminal open. |
 | `Address already in use` / port 8501 busy | Another app (or a second copy of this one) is using port 8501. Close it and start again. |
 | `GROQ_API_KEY is missing` | Add the key to `.env` or `.streamlit/secrets.toml` (see [Set the Groq API key](#3-set-the-groq-api-key)). |
-| AI process fails or times out | Check the Groq key, quotas at [console.groq.com](https://console.groq.com), and try a smaller upload or the sample file. |
+| **Run AI process** fails or times out | Check the Groq key, quotas at [console.groq.com](https://console.groq.com), and try a smaller upload or the sample file. |
 | Upload shows an error | Confirm the file is `.xlsx` and readable; try [Excel file rules](#excel-file-rules) or the sample workbook. |
 | Docker starts but the UI is empty / errors | Ensure `.env` with `GROQ_API_KEY` exists in the project root before `docker compose up --build`. |
 

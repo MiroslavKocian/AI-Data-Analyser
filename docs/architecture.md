@@ -49,14 +49,37 @@ matches how messy exports arrive and what the cleaning prompt expects.
 No server-side file store: uploads live in memory for the session. Only cleaned data
 is written to SQLite.
 
+## LLM cleaning rules
+
+Source of truth: **`build_cleaning_prompt`** in `ai_provider.py`. Each batch receives
+the column list from the upload and a JSON array of row dicts (strings).
+
+| # | Rule sent to the model |
+|---|------------------------|
+| 1 | Output must be one JSON object with key `records` (list of objects). |
+| 2 | Each object uses the **exact** column keys from the spreadsheet (unchanged). |
+| 3 | Dates: parse and emit `YYYY-MM-DD`; invalid or missing → JSON `null`. |
+| 4 | Numeric fields: strip currency/units, numeric value only; non-numeric or missing → `null`. |
+| 5 | Other fields: empty markers (`N/A`, `n/a`, `-`, `""`) → `null`; no other reformatting or guessing. |
+
+Implementation details around the prompt:
+
+- Rows are processed in chunks of **`config.BATCH_SIZE`** (10).
+- Input rows are `astype(str)` with `N/A`, `n/a`, `nan`, `NaN` replaced by `""`
+  before `json.dumps` into the prompt.
+- Groq call: `temperature=0`, `response_format={"type": "json_object"}`.
+- Parsed `records` are turned into DataFrames with the original `schema_columns`;
+  batches are concatenated. Failures on one batch do not abort later batches.
+
+The README section [What **Run AI process** does](../README.md#what-run-ai-process-does)
+summarizes the same rules for end users.
+
 ## Cleaning pipeline (happy path)
 
 Triggered by **Run AI process** → `execute_cleaning_pipeline`:
 
-1. **`AIProvider.clean_data_with_ai`** — Split `raw_df` into batches of
-   `config.BATCH_SIZE` rows. For each batch, build a JSON-oriented prompt
-   (`build_cleaning_prompt`), call Groq with `response_format=json_object`, parse
-   `records`, append a small DataFrame. Show Streamlit progress while batches run.
+1. **`AIProvider.clean_data_with_ai`** — Apply [LLM cleaning rules](#llm-cleaning-rules)
+   per batch; Streamlit progress bar while batches run.
 2. **`save_to_sqlite`** (`repository.py`) — `df.to_sql("sales", ..., if_exists="replace")`
    into `config.DB_NAME` (`sales_intelligence.db`).
 3. **`scrub_for_display`** — Stringify for stable Streamlit tables; store in
@@ -69,12 +92,27 @@ returns—tests cover edge cases for empty LLM JSON.
 Failed batches log a warning and show `st.error` for that batch; other batches may
 still contribute rows.
 
+## LLM SQL analyst rules
+
+Source of truth: **`build_sql_prompt`** in `ai_provider.py`. The model sees table
+name `sales` and the column list from cleaned data.
+
+| # | Guideline sent to the model |
+|---|------------------------------|
+| 1 | Trend/time questions: `SELECT` date + metric, `ORDER BY` date; no row-to-row diffs unless asked. |
+| 2 | Column names with spaces or special characters must be double-quoted in SQL. |
+| 3 | If a `JOIN` is used, every selected column needs a table alias prefix. |
+| 4 | Return **only** the raw SQL string (no markdown, no explanation). |
+
+**`strip_sql_markdown`** removes ``` fences if the model adds them anyway.
+
 ## SQL analyst pipeline
 
 When the user types a question in **AI SQL analyst**:
 
 1. **`generate_sql`** — Column list from `processed_data`; prompt from
-   `build_sql_prompt`; Groq chat completion; **`strip_sql_markdown`** on the reply.
+   `build_sql_prompt` ([rules above](#llm-sql-analyst-rules)); Groq chat completion;
+   **`strip_sql_markdown`** on the reply.
 2. UI shows the SQL in a code block.
 3. **`run_select_query`** — `pd.read_sql_query(sql_code, conn)` against
    `sales_intelligence.db`.
