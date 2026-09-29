@@ -187,7 +187,8 @@ DataFrame columns from the LLM.
 ### `ai_data_analyser/sql_runner.py`
 
 - **`normalize_sql`** / **`validate_read_only_select`** — Comment strip, single-statement
-  check, allow `SELECT` / `WITH … SELECT`, block mutating keywords.
+  check, allow `SELECT` / `WITH … SELECT`, block mutating keywords. The `REPLACE()`
+  function inside a `SELECT` is allowed; `REPLACE INTO` is not a `SELECT`.
 - **`run_select_query`** — Validate, then read-only URI + `pd.read_sql_query`.
 - **`SqlValidationError`** — Raised for invalid analyst SQL (shown in Streamlit).
 

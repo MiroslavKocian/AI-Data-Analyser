@@ -149,7 +149,7 @@ The database file lives inside the container, so after `docker compose down` sto
 
 - The file must be `.xlsx` (sidebar upload and sample loader).
 - Messy real-world exports are expected: odd date formats, text in numeric fields, blanks.
-- The app reads the sheet with pandas; very large files may hit Groq rate limits because cleaning runs in batches (see `BATCH_SIZE` in `config.py`).
+- The app reads the sheet with pandas; very large files may hit Groq rate limits because cleaning runs in batches (see `BATCH_SIZE` in `ai_data_analyser/config.py`).
 - AI cleaning and the SQL analyst need a valid `GROQ_API_KEY`. Without it, the app stops with a clear error.
 
 If upload or parsing fails, fix the file or try the sample workbook first.
@@ -157,11 +157,11 @@ If upload or parsing fails, fix the file or try the sample workbook first.
 ## What **Run AI process** does
 
 Clicking the sidebar button sends your **Raw input** table to **Groq** in batches
-(`BATCH_SIZE` in `config.py`, currently **10 rows** per API call). The model must
+(`BATCH_SIZE` in `ai_data_analyser/config.py`, currently **10 rows** per API call). The model must
 answer with JSON; the app keeps the **same column names** as your Excel headers,
 merges all batches, writes the result to SQLite, and shows **Cleaned data**.
 
-The cleaning instructions (from `build_cleaning_prompt` in `ai_provider.py`) are:
+The cleaning instructions (from `build_cleaning_prompt` in `ai_data_analyser/ai_provider.py`) are:
 
 1. Return a JSON object with a single key `records`: a list of row objects.
 2. Every row must use the **exact column keys** from the upload (no renames).
@@ -198,7 +198,7 @@ flowchart TD
 1. Excel is loaded into Streamlit session state (sample file or upload).
 2. **Run AI process** sends batches of rows to Groq using the rules above.
 3. Cleaned data is saved to `sales_intelligence.db` and shown in the UI.
-4. The SQL analyst asks Groq for a `SELECT`, runs it locally, and displays rows.
+4. The SQL analyst asks Groq for a `SELECT`. The app accepts only one validated read-only statement, then runs it and displays the rows.
 
 | File | Responsibility |
 |------|----------------|
@@ -230,7 +230,9 @@ read-only access before anything hits SQLite:
 - Only a **single** statement is allowed (no `;` chains).
 - The statement must be **`SELECT`** (optional leading **`WITH`** CTE).
 - **Mutating keywords** are rejected (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`,
-  `CREATE`, `ATTACH`, `PRAGMA`, and similar).
+  `CREATE`, `ATTACH`, `PRAGMA`, and similar). A `SELECT` may still call the SQLite
+  string function `REPLACE(...)`. A `REPLACE INTO` statement is rejected because it
+  is not a `SELECT`.
 - Comments are stripped and whitespace is normalized before validation.
 - The database is opened with SQLite **`mode=ro`** (read-only URI).
 
@@ -278,6 +280,7 @@ AI-Data-Analyser/
 ├── run_app.py
 ├── quality_gate.py
 ├── ai_data_analyser/
+│   ├── __init__.py
 │   ├── app.py
 │   ├── ai_provider.py
 │   ├── config.py

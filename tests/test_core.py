@@ -236,6 +236,15 @@ class TestSqlRunner:
         with pytest.raises(SqlValidationError, match="one SQL statement"):
             run_select_query("SELECT 1; DROP TABLE sales", db_path=db)
 
+    def test_allows_replace_function(self, tmp_path):
+        db = str(tmp_path / "test.db")
+        save_to_sqlite(pd.DataFrame({"val": ["ab"]}), db_path=db)
+        result = run_select_query(
+            "SELECT REPLACE(val, 'a', 'c') AS cleaned FROM sales",
+            db_path=db,
+        )
+        assert result.iloc[0]["cleaned"] == "cb"
+
 
 class TestSqlValidation:
     def test_normalize_strips_line_comment(self):
@@ -259,6 +268,10 @@ class TestSqlValidation:
     def test_rejects_insert_as_disallowed_keyword(self):
         with pytest.raises(SqlValidationError, match="disallowed"):
             validate_read_only_select("INSERT INTO sales VALUES (1)")
+
+    def test_rejects_replace_into_statement(self):
+        with pytest.raises(SqlValidationError, match="Only SELECT"):
+            validate_read_only_select("REPLACE INTO sales VALUES (1)")
 
 
 class TestUIRenderer:
