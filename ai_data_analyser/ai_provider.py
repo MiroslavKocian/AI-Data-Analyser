@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 from openai import OpenAI
 
-from config import BATCH_SIZE, LLM_BASE_URL, LLM_MODEL
+from ai_data_analyser.config import BATCH_SIZE, LLM_BASE_URL, LLM_MODEL
 
 logger = logging.getLogger(__name__)
 

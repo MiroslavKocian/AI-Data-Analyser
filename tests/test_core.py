@@ -8,30 +8,30 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from ai_provider import (
+from ai_data_analyser.ai_provider import (
     AIProvider,
     build_cleaning_prompt,
     build_sql_prompt,
     strip_sql_markdown,
 )
-from app import main as app_main
-from data_transformer import parse_date_safely, scrub_for_display
-from pipeline_manager import execute_cleaning_pipeline
-from repository import save_to_sqlite
-from sample_loader import load_sample_excel
-from sql_runner import (
+from ai_data_analyser.app import main as app_main
+from ai_data_analyser.data_transformer import parse_date_safely, scrub_for_display
+from ai_data_analyser.pipeline_manager import execute_cleaning_pipeline
+from ai_data_analyser.repository import save_to_sqlite
+from ai_data_analyser.sample_loader import load_sample_excel
+from ai_data_analyser.sql_runner import (
     SqlValidationError,
     normalize_sql,
     run_select_query,
     validate_read_only_select,
 )
-from startup import (
+from ai_data_analyser.startup import (
     bootstrap_application,
     require_groq_api_key,
     resolve_groq_api_key,
 )
-from state_manager import load_new_data
-from ui_renderer import SAMPLE_SOURCE_ID, UIRenderer
+from ai_data_analyser.state_manager import load_new_data
+from ai_data_analyser.ui_renderer import SAMPLE_SOURCE_ID, UIRenderer
 
 
 class TestParseDateSafely:
@@ -70,7 +70,7 @@ class TestGenerateSQL:
         ],
     )
     def test_strips_markdown_fences(self, raw_response, expected):
-        with patch("ai_provider.OpenAI") as mock_openai:
+        with patch("ai_data_analyser.ai_provider.OpenAI") as mock_openai:
             mock_openai.return_value.chat.completions.create.return_value.choices[
                 0
             ].message.content = raw_response
@@ -80,7 +80,10 @@ class TestGenerateSQL:
 
 class TestCleanDataWithAI:
     def test_returns_empty_df_on_api_error(self):
-        with patch("ai_provider.OpenAI") as mock_openai, patch("ai_provider.st"):
+        with (
+            patch("ai_data_analyser.ai_provider.OpenAI") as mock_openai,
+            patch("ai_data_analyser.ai_provider.st"),
+        ):
             mock_openai.return_value.chat.completions.create.side_effect = Exception(
                 "API down",
             )
@@ -91,7 +94,10 @@ class TestCleanDataWithAI:
 
     def test_concatenates_multiple_batches(self):
         payload = json.dumps({"records": [{"col": "a"}]})
-        with patch("ai_provider.OpenAI") as mock_openai, patch("ai_provider.st"):
+        with (
+            patch("ai_data_analyser.ai_provider.OpenAI") as mock_openai,
+            patch("ai_data_analyser.ai_provider.st"),
+        ):
             mock_openai.return_value.chat.completions.create.return_value.choices[
                 0
             ].message.content = payload
@@ -117,12 +123,12 @@ class TestPromptHelpers:
 class TestPipelineManager:
     def test_calls_all_services(self):
         with (
-            patch("pipeline_manager.save_to_sqlite") as mock_save,
+            patch("ai_data_analyser.pipeline_manager.save_to_sqlite") as mock_save,
             patch(
-                "pipeline_manager.scrub_for_display",
+                "ai_data_analyser.pipeline_manager.scrub_for_display",
                 return_value=pd.DataFrame({"x": ["clean"]}),
             ),
-            patch("pipeline_manager.st") as mock_st,
+            patch("ai_data_analyser.pipeline_manager.st") as mock_st,
         ):
             mock_st.session_state = MagicMock()
             mock_ai = MagicMock()
@@ -133,7 +139,7 @@ class TestPipelineManager:
 
 class TestStateManager:
     def test_load_sets_raw_data(self):
-        with patch("state_manager.st") as mock_st:
+        with patch("ai_data_analyser.state_manager.st") as mock_st:
             mock_st.session_state = MagicMock()
             df = pd.DataFrame({"x": [1]})
             load_new_data(df, "file.xlsx")
@@ -143,7 +149,7 @@ class TestStateManager:
 class TestStartup:
     def test_resolve_from_env(self):
         with (
-            patch("startup.load_dotenv"),
+            patch("ai_data_analyser.startup.load_dotenv"),
             patch.dict(
                 "os.environ",
                 {"GROQ_API_KEY": "from-env"},
@@ -154,32 +160,37 @@ class TestStartup:
 
     def test_resolve_from_secrets(self):
         with (
-            patch("startup.load_dotenv"),
+            patch("ai_data_analyser.startup.load_dotenv"),
             patch.dict(
                 "os.environ",
                 {},
                 clear=True,
             ),
         ):
-            with patch("startup.st") as mock_st:
+            with patch("ai_data_analyser.startup.st") as mock_st:
                 mock_st.secrets.get.return_value = "from-secrets"
                 assert resolve_groq_api_key() == "from-secrets"
 
     def test_resolve_returns_none_when_missing(self):
-        with patch("startup.load_dotenv"), patch.dict("os.environ", {}, clear=True):
-            with patch("startup.st") as mock_st:
+        with (
+            patch("ai_data_analyser.startup.load_dotenv"),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            with patch("ai_data_analyser.startup.st") as mock_st:
                 mock_st.secrets.get.side_effect = KeyError("missing")
                 assert resolve_groq_api_key() is None
 
     def test_require_returns_key_when_present(self):
-        with patch("startup.resolve_groq_api_key", return_value="secret-key"):
+        with patch(
+            "ai_data_analyser.startup.resolve_groq_api_key", return_value="secret-key"
+        ):
             assert require_groq_api_key() == "secret-key"
 
     def test_require_stops_when_missing(self):
         with (
-            patch("startup.resolve_groq_api_key", return_value=None),
+            patch("ai_data_analyser.startup.resolve_groq_api_key", return_value=None),
             patch(
-                "startup.st",
+                "ai_data_analyser.startup.st",
             ) as mock_st,
         ):
             mock_st.stop.side_effect = SystemExit
@@ -189,11 +200,11 @@ class TestStartup:
 
     def test_bootstrap_returns_provider(self):
         with (
-            patch("startup.require_groq_api_key", return_value="key"),
+            patch("ai_data_analyser.startup.require_groq_api_key", return_value="key"),
             patch(
-                "startup.initialize",
+                "ai_data_analyser.startup.initialize",
             ),
-            patch("startup.AIProvider") as mock_provider,
+            patch("ai_data_analyser.startup.AIProvider") as mock_provider,
         ):
             bootstrap_application()
             mock_provider.assert_called_once_with("key")
@@ -252,13 +263,13 @@ class TestSqlValidation:
 
 class TestUIRenderer:
     def test_setup_page(self):
-        with patch("ui_renderer.st") as mock_st:
+        with patch("ai_data_analyser.ui_renderer.st") as mock_st:
             UIRenderer.setup_page()
             mock_st.set_page_config.assert_called_once()
 
     def test_sample_questions_for_sample_data(self):
         mock_ai = MagicMock()
-        with patch("ui_renderer.st") as mock_st:
+        with patch("ai_data_analyser.ui_renderer.st") as mock_st:
             mock_st.session_state.processed_data = pd.DataFrame()
             mock_st.session_state.current_file = SAMPLE_SOURCE_ID
             UIRenderer.handle_analytics_view(mock_ai)
@@ -268,9 +279,9 @@ class TestUIRenderer:
         mock_ai = MagicMock()
         mock_ai.generate_sql.return_value = "SELECT 1 AS one"
         with (
-            patch("ui_renderer.st") as mock_st,
+            patch("ai_data_analyser.ui_renderer.st") as mock_st,
             patch(
-                "ui_renderer.run_select_query",
+                "ai_data_analyser.ui_renderer.run_select_query",
                 return_value=pd.DataFrame({"one": [1]}),
             ),
         ):
@@ -284,9 +295,9 @@ class TestUIRenderer:
         mock_ai = MagicMock()
         mock_ai.generate_sql.return_value = "BAD SQL"
         with (
-            patch("ui_renderer.st") as mock_st,
+            patch("ai_data_analyser.ui_renderer.st") as mock_st,
             patch(
-                "ui_renderer.run_select_query",
+                "ai_data_analyser.ui_renderer.run_select_query",
                 side_effect=Exception("syntax"),
             ),
         ):
@@ -300,10 +311,12 @@ class TestUIRenderer:
 class TestAppMain:
     def test_main_renders_flow(self):
         with (
-            patch("app.UIRenderer.setup_page"),
-            patch("app.bootstrap_application", return_value=MagicMock()),
-            patch("app.UIRenderer.handle_sidebar_ingestion"),
-            patch("app.st") as mock_st,
+            patch("ai_data_analyser.app.UIRenderer.setup_page"),
+            patch(
+                "ai_data_analyser.app.bootstrap_application", return_value=MagicMock()
+            ),
+            patch("ai_data_analyser.app.UIRenderer.handle_sidebar_ingestion"),
+            patch("ai_data_analyser.app.st") as mock_st,
         ):
             mock_st.session_state.raw_data = None
             mock_st.session_state.processed_data = None

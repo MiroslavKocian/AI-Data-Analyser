@@ -2,8 +2,8 @@
 
 import streamlit as st
 
-from startup import bootstrap_application
-from ui_renderer import UIRenderer
+from ai_data_analyser.startup import bootstrap_application
+from ai_data_analyser.ui_renderer import UIRenderer
 
 
 def main() -> None:

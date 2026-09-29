@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
-SAMPLE_EXCEL_PATH: Path = PROJECT_ROOT / "examples" / "messy_sales_example.xlsx"
+PACKAGE_ROOT: Path = Path(__file__).resolve().parent
+REPO_ROOT: Path = PACKAGE_ROOT.parent
+SAMPLE_EXCEL_PATH: Path = REPO_ROOT / "examples" / "messy_sales_example.xlsx"
 
 # Groq free-tier limits: https://console.groq.com/docs/rate-limits
 LLM_MODEL: str = "openai/gpt-oss-20b"

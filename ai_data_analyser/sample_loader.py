@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import SAMPLE_EXCEL_PATH
+from ai_data_analyser.config import SAMPLE_EXCEL_PATH
 
 
 def load_sample_excel(path: Path | None = None) -> pd.DataFrame:

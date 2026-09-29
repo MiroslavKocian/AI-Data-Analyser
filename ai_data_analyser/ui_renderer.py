@@ -3,12 +3,12 @@
 import pandas as pd
 import streamlit as st
 
-from ai_provider import AIProvider
-from pipeline_manager import execute_cleaning_pipeline
-from data_transformer import scrub_for_display
-from sample_loader import load_sample_excel
-from sql_runner import run_select_query
-from state_manager import load_new_data
+from ai_data_analyser.ai_provider import AIProvider
+from ai_data_analyser.data_transformer import scrub_for_display
+from ai_data_analyser.pipeline_manager import execute_cleaning_pipeline
+from ai_data_analyser.sample_loader import load_sample_excel
+from ai_data_analyser.sql_runner import run_select_query
+from ai_data_analyser.state_manager import load_new_data
 
 SAMPLE_SOURCE_ID: str = "sample_data"
 

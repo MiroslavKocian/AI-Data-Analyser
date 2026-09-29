@@ -4,7 +4,7 @@ import sqlite3
 
 import pandas as pd
 
-from config import DB_NAME, SALES_TABLE
+from ai_data_analyser.config import DB_NAME, SALES_TABLE
 
 
 def save_to_sqlite(df: pd.DataFrame, db_path: str = DB_NAME) -> None:

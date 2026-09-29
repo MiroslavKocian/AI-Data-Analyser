@@ -3,9 +3,9 @@
 import pandas as pd
 import streamlit as st
 
-from ai_provider import AIProvider
-from data_transformer import scrub_for_display
-from repository import save_to_sqlite
+from ai_data_analyser.ai_provider import AIProvider
+from ai_data_analyser.data_transformer import scrub_for_display
+from ai_data_analyser.repository import save_to_sqlite
 
 
 def execute_cleaning_pipeline(ai_engine: AIProvider, raw_df: pd.DataFrame) -> None:

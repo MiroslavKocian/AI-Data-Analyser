@@ -7,9 +7,9 @@ focused on running the app; this page goes deeper for code review and interviews
 ## Execution model
 
 The app is a **Streamlit** script, not a REST API. Each user interaction triggers a
-**rerun** of `main.py` → `app.main()`: widgets are redrawn and session state persists
-in `st.session_state`. There is no separate background job queue; **Run AI process**
-and Groq calls run synchronously in the request cycle of that rerun.
+**rerun** of `main.py` → `ai_data_analyser.app.main()`: widgets are redrawn and session
+state persists in `st.session_state`. There is no separate background job queue;
+**Run AI process** and Groq calls run synchronously in the request cycle of that rerun.
 
 Entry points:
 
@@ -51,8 +51,9 @@ is written to SQLite.
 
 ## LLM cleaning rules
 
-Source of truth: **`build_cleaning_prompt`** in `ai_provider.py`. Each batch receives
-the column list from the upload and a JSON array of row dicts (strings).
+Source of truth: **`build_cleaning_prompt`** in `ai_data_analyser/ai_provider.py`.
+Each batch receives the column list from the upload and a JSON array of row dicts
+(strings).
 
 | # | Rule sent to the model |
 |---|------------------------|
@@ -94,7 +95,7 @@ still contribute rows.
 
 ## LLM SQL analyst rules
 
-Source of truth: **`build_sql_prompt`** in `ai_provider.py`. The model sees table
+Source of truth: **`build_sql_prompt`** in `ai_data_analyser/ai_provider.py`. The model sees table
 name `sales` and the column list from cleaned data.
 
 | # | Guideline sent to the model |
@@ -114,42 +115,44 @@ When the user types a question in **AI SQL analyst**:
    `build_sql_prompt` ([rules above](#llm-sql-analyst-rules)); Groq chat completion;
    **`strip_sql_markdown`** on the reply.
 2. UI shows the SQL in a code block.
-3. **`run_select_query`** — `pd.read_sql_query(sql_code, conn)` against
+3. **`validate_read_only_select`** then **`run_select_query`** — normalized SQL only;
+   SQLite opened with `file:…?mode=ro`; `pd.read_sql_query` against
    `sales_intelligence.db`.
-4. Result table or **`st.error`** on SQLite exceptions.
+4. Result table or **`st.error`** on validation or SQLite errors (`SqlValidationError`
+   surfaces in the UI message).
 
-There is **no** validator that restricts SQL to `SELECT` only. The model is prompted
-for SELECT queries, but anything SQLite accepts could run. See [Design choices](#design-choices-short).
+Rejected SQL (multi-statement, mutating keywords, non-`SELECT`) never reaches the
+database. See the README [Security note](../README.md#security-note).
 
 ## Module reference
 
 ### `main.py`
 
-Thin Streamlit entry: imports `app.main` and calls it when executed as `__main__`.
+Thin Streamlit entry: imports `ai_data_analyser.app.main` and calls it when executed as `__main__`.
 Streamlit’s runner invokes the module on each rerun.
 
 ### `run_app.py`
 
 - **`main`** — Spawns `python -m streamlit run main.py` with the current interpreter.
 
-### `app.py`
+### `ai_data_analyser/app.py`
 
 - **`main`** — Orchestrates `UIRenderer` + `bootstrap_application`; gates sections on
   session state flags.
 
-### `startup.py`
+### `ai_data_analyser/startup.py`
 
 - **`resolve_groq_api_key`** — `.env` via `python-dotenv`, else `st.secrets`.
 - **`require_groq_api_key`** — `st.error` + `st.stop()` when missing.
 - **`bootstrap_application`** — `initialize()` then `AIProvider(api_key)`.
 
-### `state_manager.py`
+### `ai_data_analyser/state_manager.py`
 
 - **`initialize`** — Default `None` for `raw_data`, `processed_data`, `current_file`,
   `last_uploaded_file_id`.
 - **`load_new_data`** — Set raw frame and source id; clear processed output.
 
-### `ui_renderer.py`
+### `ai_data_analyser/ui_renderer.py`
 
 All Streamlit I/O for easier unit testing of everything else.
 
@@ -158,7 +161,7 @@ All Streamlit I/O for easier unit testing of everything else.
 - **`handle_analytics_view`** — Cleaned data, CSV export, SQL input, sample question
   hints when `current_file == "sample_data"`.
 
-### `ai_provider.py`
+### `ai_data_analyser/ai_provider.py`
 
 - **`build_cleaning_prompt`** / **`build_sql_prompt`** — Prompt templates (rules for
   dates, numbers, nulls, quoted SQLite identifiers).
@@ -169,35 +172,38 @@ All Streamlit I/O for easier unit testing of everything else.
 Uses the OpenAI Python SDK against `config.LLM_BASE_URL` (Groq) and
 `config.LLM_MODEL`.
 
-### `pipeline_manager.py`
+### `ai_data_analyser/pipeline_manager.py`
 
 - **`execute_cleaning_pipeline`** — Connects LLM clean, SQLite save, and session
   processed frame + success message.
 
-### `repository.py`
+### `ai_data_analyser/repository.py`
 
 - **`save_to_sqlite`** — Full replace of table `config.SALES_TABLE` (`sales`).
 
 Persistence uses pandas `to_sql`, not hand-written DDL. Schema follows cleaned
 DataFrame columns from the LLM.
 
-### `sql_runner.py`
+### `ai_data_analyser/sql_runner.py`
 
-- **`run_select_query`** — Execute arbitrary SQL string passed from the UI path.
+- **`normalize_sql`** / **`validate_read_only_select`** — Comment strip, single-statement
+  check, allow `SELECT` / `WITH … SELECT`, block mutating keywords.
+- **`run_select_query`** — Validate, then read-only URI + `pd.read_sql_query`.
+- **`SqlValidationError`** — Raised for invalid analyst SQL (shown in Streamlit).
 
-### `data_transformer.py`
+### `ai_data_analyser/data_transformer.py`
 
 - **`parse_date_safely`** — `dateutil` parsing for tests and any non-LLM date logic;
   returns `None` on garbage dates.
 - **`scrub_for_display`** — Replace pandas null sentinels with empty strings for UI.
 
-### `sample_loader.py`
+### `ai_data_analyser/sample_loader.py`
 
 - **`load_sample_excel`** — Read demo workbook from disk.
 
-### `config.py`
+### `ai_data_analyser/config.py`
 
-Constants only: project paths, `LLM_MODEL`, `LLM_BASE_URL`, `DB_NAME`,
+Constants: `REPO_ROOT`, `SAMPLE_EXCEL_PATH`, `LLM_MODEL`, `LLM_BASE_URL`, `DB_NAME`,
 `SALES_TABLE`, `BATCH_SIZE`.
 
 ### `quality_gate.py`
@@ -219,8 +225,8 @@ In Docker, the database file lives in the container filesystem and is lost after
 ## Testing layout
 
 Tests live under `tests/` and mock Streamlit, Groq, and filesystem where needed.
-`pyproject.toml` enforces 100% line coverage on application modules. Importing
-`main` during tests does not start Streamlit or run quality checks.
+`pyproject.toml` enforces 100% line coverage on `ai_data_analyser`, `main`, `run_app`,
+and `quality_gate`. Importing `main` during tests does not start Streamlit or run quality checks.
 
 ## Design choices (short)
 
@@ -233,6 +239,5 @@ Tests live under `tests/` and mock Streamlit, Groq, and filesystem where needed.
 - **Display vs storage** — `scrub_for_display` is for tables only; SQLite stores the
   cleaned DataFrame as returned from the LLM path.
 - **Secrets** — Key from env or Streamlit secrets; never embedded in code.
-- **SQL analyst trust model** — Demo/portfolio scope: generated SQL runs as-is. Production
-  would whitelist statements, allow only `SELECT`, or use a fixed semantic layer instead
-  of raw `read_sql_query`.
+- **SQL analyst** — `sql_runner` validates read-only `SELECT` and opens SQLite in
+  `mode=ro` before execution; production would still add allow-lists and query limits.

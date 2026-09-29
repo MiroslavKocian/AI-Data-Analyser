@@ -39,12 +39,24 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-macOS / Linux:
+For development (tests, Ruff, same as CI):
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
+macOS / Linux runtime:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+For development:
+
+```bash
+pip install -r requirements-dev.txt
 ```
 
 If PowerShell refuses to run `Activate.ps1`, run this once and try again:
@@ -105,7 +117,7 @@ On Windows, prefer `python -m streamlit` (not bare `streamlit`) so the active `.
 
    ![Raw and cleaned tables after Run AI process](docs/images/03-cleaned-data.jpg)
 
-4. When cleaning finishes, download **CSV**, or type a question under **AI SQL analyst** and run the generated query.
+4. When cleaning finishes, download **CSV**, or type a question under **AI SQL analyst** and run the generated query. Generated SQL is validated as a **read-only `SELECT`** before it runs (see [Security note](#security-note)).
 
    ![AI SQL analyst with generated query and result](docs/images/04-sql-analyst.jpg)
 
@@ -190,20 +202,20 @@ flowchart TD
 
 | File | Responsibility |
 |------|----------------|
-| `main.py` | Streamlit entry script |
+| `main.py` | Streamlit entry script (imports `ai_data_analyser.app`) |
 | `run_app.py` | Launches `python -m streamlit run main.py` |
-| `app.py` | Page flow (ingest → clean → analyse) |
-| `ui_renderer.py` | Streamlit widgets and layout |
-| `startup.py` | Resolve `GROQ_API_KEY` from `.env` or secrets |
-| `ai_provider.py` | Groq calls for cleaning and SQL generation |
-| `pipeline_manager.py` | Clean → persist → session state |
-| `repository.py` | Write cleaned frames to SQLite |
-| `sql_runner.py` | Execute generated `SELECT` queries |
-| `state_manager.py` | Session state helpers |
-| `sample_loader.py` | Load `examples/messy_sales_example.xlsx` |
-| `data_transformer.py` | Display-safe formatting |
-| `config.py` | Paths, model name, batch size, DB table name |
 | `quality_gate.py` | Optional local runner: Ruff + pytest (same as CI) |
+| `ai_data_analyser/app.py` | Page flow (ingest → clean → analyse) |
+| `ai_data_analyser/ui_renderer.py` | Streamlit widgets and layout |
+| `ai_data_analyser/startup.py` | Resolve `GROQ_API_KEY` from `.env` or secrets |
+| `ai_data_analyser/ai_provider.py` | Groq calls for cleaning and SQL generation |
+| `ai_data_analyser/pipeline_manager.py` | Clean → persist → session state |
+| `ai_data_analyser/repository.py` | Write cleaned frames to SQLite |
+| `ai_data_analyser/sql_runner.py` | Validate and run read-only `SELECT` queries |
+| `ai_data_analyser/state_manager.py` | Session state helpers |
+| `ai_data_analyser/sample_loader.py` | Load `examples/messy_sales_example.xlsx` |
+| `ai_data_analyser/data_transformer.py` | Display-safe formatting |
+| `ai_data_analyser/config.py` | Paths, model name, batch size, DB table name |
 
 For a longer walkthrough (request flow, key functions per module, and design notes),
 see [docs/architecture.md](docs/architecture.md).
@@ -212,7 +224,7 @@ Files created while the app runs (not stored in Git): `sales_intelligence.db` in
 
 ## Security note
 
-The **AI SQL analyst** sends model-generated SQL to `sql_runner.py`, which **enforces**
+The **AI SQL analyst** sends model-generated SQL to `ai_data_analyser/sql_runner.py`, which **enforces**
 read-only access before anything hits SQLite:
 
 - Only a **single** statement is allowed (no `;` chains).
@@ -248,18 +260,19 @@ Optional: run all three in one step with `python quality_gate.py`.
 AI-Data-Analyser/
 ├── main.py
 ├── run_app.py
-├── app.py
-├── startup.py
-├── config.py
-├── ai_provider.py
-├── pipeline_manager.py
-├── repository.py
-├── sql_runner.py
-├── state_manager.py
-├── ui_renderer.py
-├── data_transformer.py
-├── sample_loader.py
 ├── quality_gate.py
+├── ai_data_analyser/
+│   ├── app.py
+│   ├── ai_provider.py
+│   ├── config.py
+│   ├── data_transformer.py
+│   ├── pipeline_manager.py
+│   ├── repository.py
+│   ├── sample_loader.py
+│   ├── sql_runner.py
+│   ├── startup.py
+│   ├── state_manager.py
+│   └── ui_renderer.py
 ├── examples/
 │   └── messy_sales_example.xlsx
 ├── docs/
@@ -274,6 +287,7 @@ AI-Data-Analyser/
 ├── Dockerfile
 ├── compose.yaml
 ├── requirements.txt
+├── requirements-dev.txt
 ├── pyproject.toml
 └── AGENTS.md
 ```

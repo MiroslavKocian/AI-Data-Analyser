@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import DB_NAME
+from ai_data_analyser.config import DB_NAME
 
 _FORBIDDEN_KEYWORD_PATTERN = re.compile(
     r"\b("

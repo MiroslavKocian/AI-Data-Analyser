@@ -5,8 +5,8 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-from ai_provider import AIProvider
-from state_manager import initialize
+from ai_data_analyser.ai_provider import AIProvider
+from ai_data_analyser.state_manager import initialize
 
 
 def resolve_groq_api_key() -> str | None:
