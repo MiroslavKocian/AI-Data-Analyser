@@ -19,13 +19,18 @@ from data_transformer import parse_date_safely, scrub_for_display
 from pipeline_manager import execute_cleaning_pipeline
 from repository import save_to_sqlite
 from sample_loader import load_sample_excel
-from sql_runner import run_select_query
+from sql_runner import (
+    SqlValidationError,
+    normalize_sql,
+    run_select_query,
+    validate_read_only_select,
+)
 from startup import (
     bootstrap_application,
     require_groq_api_key,
     resolve_groq_api_key,
 )
-from state_manager import initialize, load_new_data
+from state_manager import load_new_data
 from ui_renderer import SAMPLE_SOURCE_ID, UIRenderer
 
 
@@ -207,6 +212,42 @@ class TestSqlRunner:
         save_to_sqlite(pd.DataFrame({"val": [7]}), db_path=db)
         result = run_select_query("SELECT val FROM sales", db_path=db)
         assert result.iloc[0]["val"] == 7
+
+    def test_rejects_drop_table(self, tmp_path):
+        db = str(tmp_path / "test.db")
+        save_to_sqlite(pd.DataFrame({"val": [1]}), db_path=db)
+        with pytest.raises(SqlValidationError, match="disallowed"):
+            run_select_query("DROP TABLE sales", db_path=db)
+
+    def test_rejects_multiple_statements(self, tmp_path):
+        db = str(tmp_path / "test.db")
+        save_to_sqlite(pd.DataFrame({"val": [1]}), db_path=db)
+        with pytest.raises(SqlValidationError, match="one SQL statement"):
+            run_select_query("SELECT 1; DROP TABLE sales", db_path=db)
+
+
+class TestSqlValidation:
+    def test_normalize_strips_line_comment(self):
+        assert normalize_sql("SELECT 1 -- comment") == "SELECT 1"
+
+    def test_normalize_strips_trailing_semicolon(self):
+        assert normalize_sql("SELECT 1;") == "SELECT 1"
+
+    def test_validate_with_cte_select(self):
+        sql = "WITH x AS (SELECT 1 AS n) SELECT n FROM x"
+        assert validate_read_only_select(sql) == sql
+
+    def test_rejects_empty_sql(self):
+        with pytest.raises(SqlValidationError, match="empty"):
+            validate_read_only_select("   -- only comment ")
+
+    def test_rejects_non_select_statement(self):
+        with pytest.raises(SqlValidationError, match="Only SELECT"):
+            validate_read_only_select("SHOW TABLES")
+
+    def test_rejects_insert_as_disallowed_keyword(self):
+        with pytest.raises(SqlValidationError, match="disallowed"):
+            validate_read_only_select("INSERT INTO sales VALUES (1)")
 
 
 class TestUIRenderer:

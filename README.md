@@ -212,9 +212,19 @@ Files created while the app runs (not stored in Git): `sales_intelligence.db` in
 
 ## Security note
 
-The **AI SQL analyst** runs model-generated SQL against your SQLite file. This is a
-**portfolio demo**, not a hardened production service. In production you would allow
-only validated read-only `SELECT` statements.
+The **AI SQL analyst** sends model-generated SQL to `sql_runner.py`, which **enforces**
+read-only access before anything hits SQLite:
+
+- Only a **single** statement is allowed (no `;` chains).
+- The statement must be **`SELECT`** (optional leading **`WITH`** CTE).
+- **Mutating keywords** are rejected (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`,
+  `CREATE`, `ATTACH`, `PRAGMA`, and similar).
+- Comments are stripped and whitespace is normalized before validation.
+- The database is opened with SQLite **`mode=ro`** (read-only URI).
+
+Invalid SQL shows a clear **Streamlit error** in the UI; it is never executed. This
+remains a **portfolio demo** — production would add stronger parsing, allow-lists, and
+query limits.
 
 ## Tests
 
