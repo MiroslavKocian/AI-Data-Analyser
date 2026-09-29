@@ -37,29 +37,19 @@ Windows (PowerShell):
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-
-For development (tests, Ruff, same as CI):
-
-```powershell
 pip install -r requirements-dev.txt
 ```
 
-<br>
-
-macOS / Linux runtime:
+macOS / Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-For development:
-
-```bash
 pip install -r requirements-dev.txt
 ```
+
+`requirements.txt` is what the app needs to run. `requirements-dev.txt` adds pytest, coverage, and Ruff. Docker installs only `requirements.txt`.
 
 If PowerShell refuses to run `Activate.ps1`, run this once and try again:
 
