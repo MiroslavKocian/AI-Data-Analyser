@@ -24,10 +24,10 @@ in GitHub Actions; optionally `python quality_gate.py`.
 
 ## Page flow (one rerun)
 
-`app.main()` calls methods on `UIRenderer` in a fixed order:
+`ai_data_analyser.app.main()` calls methods on `UIRenderer` in a fixed order:
 
 1. **`setup_page`** — Page config and title.
-2. **`bootstrap_application`** (`startup.py`) — Session keys + `AIProvider` with Groq key.
+2. **`bootstrap_application`** (`ai_data_analyser/startup.py`) — Session keys + `AIProvider` with Groq key.
 3. **`handle_sidebar_ingestion`** — Sample button or `.xlsx` upload → `load_new_data`.
 4. If `raw_data` is set — **`handle_raw_data_view`** — Show raw table; sidebar **Run AI process**.
 5. If `processed_data` is set — **`handle_analytics_view`** — Cleaned table, CSV download, SQL analyst.
@@ -39,7 +39,7 @@ Loading new data clears `processed_data` so old AI output never pairs with a new
 Two paths into the same session shape:
 
 1. **Sample** — `load_sample_excel()` reads `examples/messy_sales_example.xlsx` via
-   `config.SAMPLE_EXCEL_PATH`; `load_new_data(df, "sample_data")`.
+   `ai_data_analyser.config.SAMPLE_EXCEL_PATH`; `load_new_data(df, "sample_data")`.
 2. **Upload** — Sidebar file uploader (`.xlsx` only). On a new `file_id`,
    `pd.read_excel(..., keep_default_na=False)` then `load_new_data(df, filename)`.
 
@@ -65,7 +65,7 @@ Each batch receives the column list from the upload and a JSON array of row dict
 
 Implementation details around the prompt:
 
-- Rows are processed in chunks of **`config.BATCH_SIZE`** (10).
+- Rows are processed in chunks of **`ai_data_analyser.config.BATCH_SIZE`** (10).
 - Input rows are `astype(str)` with `N/A`, `n/a`, `nan`, `NaN` replaced by `""`
   before `json.dumps` into the prompt.
 - Groq call: `temperature=0`, `response_format={"type": "json_object"}`.
@@ -81,8 +81,8 @@ Triggered by **Run AI process** → `execute_cleaning_pipeline`:
 
 1. **`AIProvider.clean_data_with_ai`** — Apply [LLM cleaning rules](#llm-cleaning-rules)
    per batch; Streamlit progress bar while batches run.
-2. **`save_to_sqlite`** (`repository.py`) — `df.to_sql("sales", ..., if_exists="replace")`
-   into `config.DB_NAME` (`sales_intelligence.db`).
+2. **`save_to_sqlite`** (`ai_data_analyser/repository.py`) — `df.to_sql("sales", ..., if_exists="replace")`
+   into `ai_data_analyser.config.DB_NAME` (`sales_intelligence.db`).
 3. **`scrub_for_display`** — Stringify for stable Streamlit tables; store in
    `st.session_state.processed_data`.
 
@@ -169,8 +169,8 @@ All Streamlit I/O for easier unit testing of everything else.
 - **`AIProvider.clean_data_with_ai`** — Batched Groq JSON cleaning with progress UI.
 - **`AIProvider.generate_sql`** — Single-shot SQL string generation.
 
-Uses the OpenAI Python SDK against `config.LLM_BASE_URL` (Groq) and
-`config.LLM_MODEL`.
+Uses the OpenAI Python SDK against `ai_data_analyser.config.LLM_BASE_URL` (Groq) and
+`ai_data_analyser.config.LLM_MODEL`.
 
 ### `ai_data_analyser/pipeline_manager.py`
 
@@ -179,7 +179,7 @@ Uses the OpenAI Python SDK against `config.LLM_BASE_URL` (Groq) and
 
 ### `ai_data_analyser/repository.py`
 
-- **`save_to_sqlite`** — Full replace of table `config.SALES_TABLE` (`sales`).
+- **`save_to_sqlite`** — Full replace of table `ai_data_analyser.config.SALES_TABLE` (`sales`).
 
 Persistence uses pandas `to_sql`, not hand-written DDL. Schema follows cleaned
 DataFrame columns from the LLM.
